@@ -670,9 +670,7 @@
       bottom: 52px; left: 50%;
       z-index: 20;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 14px;
       opacity: 0;
       pointer-events: none;
       transform: translateX(-50%) translateY(20px);
@@ -683,17 +681,6 @@
       visibility: visible;
       pointer-events: auto;
       transform: translateX(-50%) translateY(-12px);
-    }
-
-    .reveal-caption {
-      font-family: var(--font-display);
-      font-size: 9.5px;
-      font-weight: 600;
-      letter-spacing: 3.5px;
-      color: #fff;
-      text-transform: uppercase;
-      text-shadow: 0 0 14px rgba(255, 140, 0, 0.95), 0 0 30px rgba(255, 40, 0, 0.75);
-      text-align: center;
     }
 
     .btn-replay {
@@ -742,7 +729,6 @@
       .modal-desc { font-size: 12px; margin-bottom: 18px; }
 
       #reveal-controls { bottom: 38px; }
-      .reveal-caption { font-size: 9px; letter-spacing: 2.5px; }
     }
 
     @media (max-width: 380px) {
@@ -939,39 +925,9 @@
     }
     .settings-field { display: grid; gap: 7px; color: #e6e6e6; font: 10px var(--font-mono); }
     .settings-field small { color: #a5a5a5; font: 9px/1.5 var(--font-mono); }
-    .action-overlay {
-      position: absolute;
-      z-index: 18;
-      inset: 0;
-      display: grid;
-      place-content: center;
-      gap: 12px;
-      background: radial-gradient(ellipse, rgba(255, 108, 13, 0.25), rgba(8, 9, 11, 0.28) 48%, transparent 76%);
-      color: white;
-      font: 700 clamp(20px, 4vw, 38px) var(--font-display);
-      letter-spacing: 0.16em;
-      text-align: center;
-      text-shadow: 0 0 26px rgba(255, 113, 22, 0.75);
-      pointer-events: none;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 180ms ease;
-    }
-    .action-overlay.visible { opacity: 1; visibility: visible; }
-    .action-overlay small { font: 10px var(--font-mono); letter-spacing: 0.18em; }
-    .action-overlay button {
-      min-height: 44px;
-      margin: 8px auto 0;
-      padding: 0 18px;
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      border-radius: 6px;
-      background: rgba(9, 10, 12, 0.85);
-      color: white;
-      font: 10px var(--font-mono);
-      letter-spacing: 0.12em;
-      pointer-events: auto;
-      cursor: pointer;
-    }
+    .hud-panel-left,
+    .site-version,
+    #camera-switch-status { display: none; }
     #reveal-controls { z-index: 30; bottom: 112px; }
     .settings-control { min-width: 44px; padding: 0 12px; }
     .logo-fallback { display: none; color: #f4f4f4; font: 700 13px var(--font-display); letter-spacing: 2px; }
@@ -1019,6 +975,240 @@
       .btn-power-fire { font-size: 10px; letter-spacing: 1px; }
       .trigger-hint { font-size: 7.5px; }
     }
+
+    /* Refined glass controls and fluid interaction states */
+    :root {
+      --surface: rgba(12, 14, 20, 0.72);
+      --border: rgba(255, 255, 255, 0.12);
+      --border-warm: rgba(255, 177, 74, 0.38);
+      --blur: blur(24px) saturate(155%);
+    }
+
+    #app-container {
+      background:
+        radial-gradient(ellipse at 50% 100%, rgba(255, 126, 32, 0.08), transparent 52%),
+        #07070a;
+    }
+
+    #top-hud-bar {
+      padding: max(14px, env(safe-area-inset-top)) clamp(14px, 3vw, 30px) 0;
+    }
+
+    #top-logo {
+      filter: drop-shadow(0 3px 14px rgba(0, 0, 0, 0.75));
+      transition: height 420ms cubic-bezier(0.2, 0.75, 0.25, 1),
+        filter 420ms ease, transform 420ms ease;
+    }
+
+    .hud-icon-btn,
+    .btn-subtle,
+    .camera-option,
+    .lock-control,
+    .settings-control,
+    .btn-replay {
+      transition: background-color 220ms ease, color 220ms ease,
+        border-color 220ms ease, box-shadow 260ms ease,
+        transform 260ms cubic-bezier(0.2, 0.75, 0.25, 1), opacity 220ms ease;
+    }
+
+    .hud-icon-btn,
+    .btn-subtle,
+    .settings-control {
+      min-height: 44px;
+      border-color: rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      background: rgba(11, 13, 18, 0.64);
+      color: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(18px) saturate(145%);
+      -webkit-backdrop-filter: blur(18px) saturate(145%);
+    }
+
+    .hud-icon-btn:hover,
+    .btn-subtle:hover,
+    .settings-control:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 184, 94, 0.52);
+      background: rgba(24, 23, 22, 0.82);
+      color: #fff;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 149, 0, 0.1);
+    }
+
+    .camera-selector {
+      gap: 5px;
+      padding: 5px;
+      border-color: rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      background: rgba(9, 11, 16, 0.68);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+    }
+
+    .camera-option,
+    .lock-control {
+      min-height: 46px;
+      border-radius: 12px;
+      letter-spacing: 0.075em;
+    }
+
+    .camera-option[aria-pressed="true"] {
+      border-color: rgba(255, 185, 92, 0.44);
+      background: linear-gradient(145deg, rgba(255, 166, 64, 0.2), rgba(255, 111, 19, 0.1));
+      color: #ffd39a;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px rgba(255, 132, 28, 0.08);
+    }
+
+    .camera-option:not(:disabled):hover,
+    .lock-control:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 185, 92, 0.5);
+      background-color: rgba(255, 149, 0, 0.12);
+      color: #ffe0b2;
+    }
+
+    #bottom-hud-bar {
+      left: 50%;
+      right: auto;
+      bottom: max(14px, env(safe-area-inset-bottom));
+      width: min(760px, calc(100% - 28px));
+      padding: 13px 16px 12px;
+      gap: 11px;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 20px;
+      background: linear-gradient(145deg, rgba(12, 14, 19, 0.74), rgba(8, 9, 13, 0.58));
+      box-shadow: 0 16px 44px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(24px) saturate(145%);
+      -webkit-backdrop-filter: blur(24px) saturate(145%);
+      transform: translateX(-50%);
+      transition: background-color 300ms ease, border-color 300ms ease,
+        box-shadow 300ms ease, transform 350ms cubic-bezier(0.2, 0.75, 0.25, 1);
+    }
+
+    .trigger-section { gap: 9px; }
+
+    .trigger-controls {
+      width: 100%;
+      gap: 10px;
+    }
+
+    .lock-control {
+      min-width: 160px;
+      border-color: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.055);
+      color: rgba(255, 255, 255, 0.92);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    }
+
+    .lock-control:disabled,
+    .btn-power-fire:disabled {
+      opacity: 0.48;
+      filter: saturate(0.65);
+      box-shadow: none;
+    }
+
+    .btn-power-fire {
+      min-height: 52px;
+      padding: 13px 30px;
+      border: 1px solid rgba(255, 208, 164, 0.42);
+      border-radius: 14px;
+      background: linear-gradient(135deg, #d94b16 0%, #f08227 54%, #bd3927 100%);
+      box-shadow: 0 8px 24px rgba(205, 75, 20, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      transition: box-shadow 240ms ease, filter 240ms ease,
+        transform 260ms cubic-bezier(0.2, 0.75, 0.25, 1), opacity 220ms ease;
+    }
+
+    .btn-power-fire:not(:disabled):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(205, 75, 20, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+      filter: brightness(1.07);
+    }
+
+    .btn-power-fire:active:not(:disabled),
+    .hud-icon-btn:active,
+    .btn-subtle:active,
+    .btn-replay:active {
+      transform: scale(0.97);
+    }
+
+    .trigger-hint {
+      max-width: min(92vw, 620px);
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 9px;
+      letter-spacing: 0.095em;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+    }
+
+    .brand-row { min-height: 28px; }
+
+    #bottom-logo {
+      height: 21px;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.7));
+      transition: opacity 240ms ease, transform 300ms ease, filter 240ms ease;
+    }
+
+    .brand-row:hover #bottom-logo { transform: translateY(-1px); }
+
+    .btn-replay {
+      min-height: 48px;
+      padding: 0 25px;
+      border-color: rgba(255, 189, 109, 0.55);
+      border-radius: 14px;
+      background: rgba(13, 14, 17, 0.76);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px) saturate(145%);
+      -webkit-backdrop-filter: blur(20px) saturate(145%);
+    }
+
+    .btn-replay:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 149, 0, 0.2);
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32), 0 0 22px rgba(255, 149, 0, 0.16);
+    }
+
+    .overlay-backdrop { transition: opacity 420ms ease, visibility 420ms ease; }
+
+    .modal-card {
+      animation: modal-arrive 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+    }
+
+    @keyframes modal-arrive {
+      from { opacity: 0; transform: translateY(14px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 700px) {
+      #top-hud-bar { padding: max(10px, env(safe-area-inset-top)) 12px 0; }
+      .camera-selector {
+        top: 140px;
+        left: 50%;
+        width: min(340px, calc(100% - 24px));
+        transform: translateX(-50%);
+      }
+      #bottom-hud-bar {
+        bottom: max(10px, env(safe-area-inset-bottom));
+        width: calc(100% - 20px);
+        padding: 11px 11px 10px;
+        gap: 9px;
+        border-radius: 18px;
+      }
+      .trigger-controls { gap: 7px; }
+      .lock-control { min-width: 0; padding: 0 10px; }
+      .btn-power-fire { min-width: 0; padding: 12px 10px; }
+      .trigger-hint { font-size: 8px; }
+      .brand-row { min-height: 24px; }
+      #bottom-logo { height: 18px; }
+      #reveal-controls { bottom: calc(118px + env(safe-area-inset-bottom)); }
+    }
+
+    @media (max-width: 380px) {
+      .camera-option { min-height: 42px; }
+      #bottom-hud-bar { padding: 9px 9px 8px; }
+      .lock-control { font-size: 8px; }
+      .btn-power-fire { font-size: 9.5px; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         scroll-behavior: auto !important;
@@ -1049,6 +1239,7 @@
     <!-- Background Theme Music (Jailer 2 BGM Track) -->
     <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
     <audio id="lock-bgm-audio" src="hukum-reloaded.mp3" loop preload="auto"></audio>
+    <audio id="bomb-sound" src="bomb-explosion.mp3" preload="auto"></audio>
 
     <!-- Main Output Canvas -->
     <canvas id="render-canvas" aria-label="Live camera preview with targeting overlay"></canvas>
@@ -1068,7 +1259,7 @@
           <span id="state-label">CAMERA REQUIRED</span>
         </div>
         <div class="hud-chip accent">
-          <span id="tracking-info">TAP PREVIEW TO PLACE RETICLE</span>
+          <span id="tracking-info">TAP THE GLASSES TO PLACE RETICLE</span>
         </div>
         <div>
           <div class="brand-wordmark">PANBUU</div>
@@ -1100,8 +1291,8 @@
     </header>
 
     <div class="camera-selector" role="group" aria-label="Select camera">
-      <button class="camera-option" id="btn-front-camera" type="button" aria-pressed="true">FRONT CAMERA</button>
-      <button class="camera-option" id="btn-rear-camera" type="button" aria-pressed="false">REAR CAMERA</button>
+      <button class="camera-option" id="btn-front-camera" type="button" aria-pressed="false">FRONT CAMERA</button>
+      <button class="camera-option" id="btn-rear-camera" type="button" aria-pressed="true">REAR CAMERA</button>
     </div>
     <div id="camera-switch-status" role="status" aria-live="polite">CAMERA NOT CONNECTED</div>
 
@@ -1115,11 +1306,6 @@
       <p class="panel-note">Targets are placed manually in the camera preview.</p>
     </aside>
 
-    <div class="action-overlay" id="action-overlay" aria-live="assertive" aria-hidden="true">
-      <span id="action-overlay-title">SYSTEM ACTIVATED</span>
-      <small>VISUAL SIMULATION ONLY</small>
-      <button id="btn-cancel-action" type="button">CANCEL SIMULATION</button>
-    </div>
     <div class="lock-countdown" id="lock-countdown" role="status" aria-live="assertive" hidden>
       <span class="lock-countdown-label">SIMULATION STARTS IN</span>
       <span id="lock-countdown-value">3</span>
@@ -1139,7 +1325,7 @@
           <span>IGNITE BLAST</span>
         </button>
         </div>
-        <div class="trigger-hint" id="action-hint">TAP THE PREVIEW TO PLACE A RETICLE, THEN LOCK IT</div>
+        <div class="trigger-hint" id="action-hint">TAP THE GLASSES, THEN LOCK TARGET TO START THE 3-SECOND COUNTDOWN</div>
       </div>
 
       <!-- Brand row -->
@@ -1153,13 +1339,8 @@
 
     <!-- Act 4 Reveal Controls & Replay -->
     <div id="reveal-controls" aria-hidden="true">
-      <div class="reveal-caption">VISUAL SIMULATION COMPLETE</div>
       <button id="btn-replay-pill" class="btn-replay">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-          <path d="M3 3v5h5"/>
-        </svg>
-        PLAY AGAIN [ 🔄 ]
+        PLAY AGAIN
       </button>
     </div>
 
@@ -1169,7 +1350,7 @@
         <div class="modal-badge">Jailer 2 // WebAR Experience</div>
         <h1 class="modal-title">Cinematic Vision</h1>
         <p class="modal-desc">
-          Start the camera, tap anywhere in the preview to place your reticle, then lock your target. The cinematic effect is visual-only.
+          Start the camera, tap the glasses in the preview to place your reticle, then lock the target. The 3-second countdown starts the visual-only cinematic effect automatically.
         </p>
 
         <div class="instructions-grid">
@@ -1179,11 +1360,11 @@
           </div>
           <div class="step-box">
             <div class="step-num">02 / PLACE</div>
-            <div class="step-text">Tap the preview to position the manual reticle.</div>
+            <div class="step-text">Tap the glasses in the preview to position the manual reticle.</div>
           </div>
           <div class="step-box">
             <div class="step-num">03 / LOCK</div>
-            <div class="step-text">Press Lock Target to confirm your selected position.</div>
+            <div class="step-text">Press Lock Target to start the 3-second countdown.</div>
           </div>
           <div class="step-box">
             <div class="step-num">04 / SIMULATE</div>
@@ -1283,8 +1464,8 @@
       // Webcam Video
       video: document.getElementById('webcam-video'),
       videoReady: false,
-      facingMode: 'user', // 'user' (selfie/front) | 'environment' (rear/back)
-      isMirrored: true,   // Mirrored for selfie camera, unmirrored for rear camera
+      facingMode: 'environment', // 'user' (selfie/front) | 'environment' (rear/back)
+      isMirrored: false,   // Mirrored for selfie camera, unmirrored for rear camera
       cameraSwitching: false,
       cameraStream: null,
       cameraDevices: [],
@@ -1320,6 +1501,7 @@
       // BGM Music & Audio Control (Jailer 2)
       bgmAudio: document.getElementById('bgm-audio'),
       lockBgmAudio: document.getElementById('lock-bgm-audio'),
+      bombSound: document.getElementById('bomb-sound'),
       lockBgmActive: false,
       bgmTargetVol: 0.32,  // Medium volume by default
       bgmCurrentVol: 0.32,
@@ -1371,8 +1553,6 @@
       lockButton: document.getElementById('btn-target-lock'),
       blastButton: document.getElementById('btn-power-fire'),
       actionHint: document.getElementById('action-hint'),
-      actionOverlay: document.getElementById('action-overlay'),
-      actionOverlayTitle: document.getElementById('action-overlay-title'),
       lockCountdown: document.getElementById('lock-countdown'),
       lockCountdownValue: document.getElementById('lock-countdown-value'),
       renderFpsLabel: document.getElementById('render-fps'),
@@ -2100,6 +2280,7 @@
         app.statusVision.textContent = "MANUAL AIM";
         app.stateLabel.textContent = "MANUAL AIM";
         updateCameraUI();
+        updateTargetUI();
         return true;
       } catch (err) {
         if (stream) stream.getTracks().forEach(track => track.stop());
@@ -2221,8 +2402,8 @@
       app.statusTarget.dataset.state = app.targetLocked || hasTarget ? "good" : "";
       if (!app.targetLocked) {
         if (!app.videoReady) app.actionHint.textContent = "START CAMERA ACCESS TO BEGIN";
-        else if (!hasTarget) app.actionHint.textContent = "TAP THE PREVIEW TO PLACE A RETICLE";
-        else app.actionHint.textContent = "RETICLE PLACED — LOCK TARGET WHEN READY";
+        else if (!hasTarget) app.actionHint.textContent = "TAP THE GLASSES TO PLACE A RETICLE";
+        else app.actionHint.textContent = "RETICLE PLACED - LOCK TARGET TO START COUNTDOWN";
       }
     }
 
@@ -2252,6 +2433,11 @@
     function startBgmMusic() {
       const audio = getActiveBgmAudio();
       if (audio) {
+        if (!app.soundEnabled || app.bgmMuted) {
+          audio.pause();
+          updateAudioUI();
+          return;
+        }
         audio.volume = app.bgmMuted ? 0 : app.bgmTargetVol;
         audio.play().catch(err => {
           console.warn("BGM playback will resume on user interaction:", err);
@@ -2261,11 +2447,14 @@
     }
 
     function startLockedBgmMusic() {
+      const wasAlreadyActive = app.lockBgmActive;
       app.lockBgmActive = true;
       app.bgmAudio.pause();
-      app.lockBgmAudio.pause();
-      app.lockBgmAudio.currentTime = 0;
-      if (app.soundEnabled && !app.bgmMuted) {
+      if (!wasAlreadyActive) {
+        app.lockBgmAudio.pause();
+        app.lockBgmAudio.currentTime = 0;
+      }
+      if (app.soundEnabled && !app.bgmMuted && app.lockBgmAudio.paused) {
         app.lockBgmAudio.volume = app.bgmTargetVol;
         app.lockBgmAudio.play().catch(err => {
           console.warn("Lock countdown BGM could not be played:", err);
@@ -2275,10 +2464,23 @@
     }
 
     function restoreStartupBgmMusic() {
+      if (app.lockBgmActive) {
+        startBgmMusic();
+        return;
+      }
       app.lockBgmActive = false;
       app.lockBgmAudio.pause();
       app.lockBgmAudio.currentTime = 0;
       startBgmMusic();
+    }
+
+    function playBombSound() {
+      if (!app.soundEnabled || app.bgmMuted) return;
+      app.bombSound.currentTime = 0;
+      app.bombSound.volume = 0.9;
+      app.bombSound.play().catch(err => {
+        console.warn("Bomb sound effect could not be played:", err);
+      });
     }
 
     function setBgmVolume(targetVol) {
@@ -2344,8 +2546,6 @@
         app.revealControls.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('letterbox-active');
         document.body.classList.remove('blast-active');
-        app.actionOverlay.classList.remove('visible');
-        app.actionOverlay.setAttribute('aria-hidden', 'true');
         updateTargetUI();
       }
       else if (newState === STATES.LOCKING) {
@@ -2367,14 +2567,11 @@
         app.statusDot.classList.add('blast');
         app.actionHint.textContent = "SIMULATION IN PROGRESS";
         document.body.classList.add('blast-active');
-        app.actionOverlayTitle.textContent = "SYSTEM ACTIVATED";
-        app.actionOverlay.classList.add('visible');
-        app.actionOverlay.setAttribute('aria-hidden', 'false');
         setBgmVolume(app.soundEnabled ? 0.65 : 0);
         sound.stopLockingDrone();
+        sound.stopRoarAmbience();
         if (app.soundEnabled) {
-          sound.playTargetLockedChime();
-          sound.playIgnition();
+          playBombSound();
         }
 
         // Initial blinding ignition flash
@@ -2391,9 +2588,7 @@
       }
       else if (newState === STATES.BURST) {
         app.statusDot.classList.add('blast');
-        app.actionOverlayTitle.textContent = "SIMULATION COMPLETE";
         setBgmVolume(app.soundEnabled ? 0.65 : 0);
-        if (app.soundEnabled) sound.playBurstExplosion();
 
         // Screen-swallowing burst
         if (!app.reduceMotion) triggerShockwave(app.lockedLens.x, app.lockedLens.y);
@@ -2408,10 +2603,7 @@
         }
       }
       else if (newState === STATES.REVEAL) {
-        app.actionOverlayTitle.textContent = "SIMULATION COMPLETE";
-        app.actionOverlay.classList.add('visible');
         setBgmVolume(app.soundEnabled ? 0.55 : 0);
-        if (app.soundEnabled) sound.startRoarAmbience();
         app.revealControls.classList.add('visible');
         app.revealControls.setAttribute('aria-hidden', 'false');
         document.body.classList.add('letterbox-active');
@@ -2422,8 +2614,6 @@
         setBgmVolume(0.32); // Return to medium volume
         app.revealControls.classList.remove('visible');
         app.revealControls.setAttribute('aria-hidden', 'true');
-        app.actionOverlay.classList.remove('visible');
-        app.actionOverlay.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('letterbox-active');
         document.body.classList.remove('blast-active');
         app.lockProgress = 0;
@@ -2694,7 +2884,7 @@
       if (app.trackingInfo) {
         app.trackingInfo.textContent = app.manualTargetPlaced
           ? "MANUAL TARGET SELECTED"
-          : "TAP PREVIEW TO PLACE RETICLE";
+          : "TAP THE GLASSES TO PLACE RETICLE";
       }
 
       // 4. Update State Timers & State Machine Progression
@@ -2733,7 +2923,6 @@
           spawnSmoke(bgX, bgY, 2, 1.5);
           if (Math.random() < 0.25) spawnSparks(bgX, bgY, 4, 1.0);
         }
-        if (app.stateTime >= 2.4) resetApp();
       }
 
       updateParticles(dt);
@@ -2961,8 +3150,6 @@
       startBgmMusic();
       triggerManualBlast();
     });
-    document.getElementById('btn-cancel-action').addEventListener('click', resetApp);
-
     document.getElementById('btn-settings').addEventListener('click', () => {
       app.settingsModal.setAttribute('aria-hidden', 'false');
       document.getElementById('btn-close-settings').focus();
@@ -2992,6 +3179,7 @@
       } else {
         app.bgmAudio.pause();
         app.lockBgmAudio.pause();
+        app.bombSound.pause();
       }
       if (sound.masterGain && sound.ctx) {
         const now = sound.ctx.currentTime;
@@ -3031,6 +3219,7 @@
       if (app.cameraStream) app.cameraStream.getTracks().forEach(track => track.stop());
       app.bgmAudio.pause();
       app.lockBgmAudio.pause();
+      app.bombSound.pause();
       app.video.pause();
       app.video.srcObject = null;
     });
