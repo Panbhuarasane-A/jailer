@@ -7,28 +7,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#070709">
-  <title>Cinematic Glasses Blast // WebAR Experience</title>
+  <meta name="description" content="PANBUU JAILER cinematic camera experience with manual targeting and visual-only effects.">
+  <title>PANBUU JAILER // Cinematic Vision</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!--
   ================================================================================
-  CINEMATIC GLASSES BLAST
-  A single-file browser WebAR application that tracks a held lens/glasses,
-  locks on target, ignites a fiery explosion INSIDE the lens, bursts full-screen,
-  and reveals a cinematic action-hero selfie with the explosion roaring behind.
+  PANBUU JAILER — CINEMATIC VISION
+  A single-page camera experience with manual target placement, explicit user
+  target locking, and a visual-only cinematic effect.
 
   HOW TO RUN LOCALLY:
-  1. Open a terminal in this directory.
-  2. Run a local web server (required for camera access and ES modules):
-       python -m http.server 8000
-  3. Open your browser to:
-       http://localhost:8000
+  Run a static web server on localhost (camera access requires a secure context).
 
   HOW TO DEPLOY TO GITHUB PAGES:
-  1. Push this repository (containing index.html) to GitHub.
-  2. Go to Repo Settings -> Pages -> Build and deployment -> Branch: main / root.
-  3. Save. GitHub Pages will host it over HTTPS with full webcam & WebGL support!
+  Publish the repository root through GitHub Pages. Relative local asset paths
+  keep logos and audio working when deployed under a repository subpath.
   ================================================================================
   -->
 
@@ -56,8 +51,8 @@
       --hud-gold: #ffd60a;
       --glass-panel: rgba(10, 12, 22, 0.88);
       --glass-border: rgba(255, 255, 255, 0.08);
-      --font-display: 'Orbitron', 'JetBrains Mono', Consolas, monospace;
-      --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      --font-display: 'Open Sans', sans-serif;
+      --font-mono: 'Open Sans', sans-serif;
       --blur: blur(20px) saturate(160%);
       --radius-sm: 6px;
       --radius-md: 10px;
@@ -78,7 +73,7 @@
       height: 100%;
       overflow: hidden;
       background: var(--bg);
-      font-family: var(--font-mono);
+      font-family: 'Open Sans', sans-serif;
       color: var(--text-primary);
     }
 
@@ -90,6 +85,57 @@
       background: radial-gradient(ellipse at center, #0f101a 0%, #050608 100%);
     }
 
+    #intro-sequence {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #000;
+      opacity: 1;
+      transition: opacity 700ms ease;
+    }
+    #intro-sequence.is-leaving { opacity: 0; pointer-events: none; }
+    #intro-logo {
+      width: min(72vw, 560px);
+      max-height: 42vh;
+      object-fit: contain;
+      opacity: 0;
+      transform: scale(0.82);
+      filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.08));
+    }
+    #intro-logo.is-visible { animation: intro-logo-zoom 3s cubic-bezier(0.2, 0.65, 0.3, 1) both; }
+    @keyframes intro-logo-zoom {
+      0% { opacity: 0; transform: scale(0.82); }
+      18% { opacity: 1; }
+      78% { opacity: 1; transform: scale(1.04); }
+      100% { opacity: 0; transform: scale(1.12); }
+    }
+    .lock-countdown {
+      position: absolute;
+      z-index: 28;
+      top: 44%;
+      left: 50%;
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      text-align: center;
+      pointer-events: none;
+      text-shadow: 0 0 24px rgba(255, 149, 0, 0.9);
+    }
+    .lock-countdown[hidden] { display: none; }
+    .lock-countdown-label {
+      font: 700 11px/1.4 'Open Sans', sans-serif;
+      letter-spacing: 0.24em;
+    }
+    #lock-countdown-value {
+      color: #ffb347;
+      font: 800 clamp(84px, 18vw, 156px)/1 'Open Sans', sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
     /* Main Composite Canvas */
     #render-canvas {
       position: absolute;
@@ -100,6 +146,8 @@
       object-fit: cover;
       display: block;
       z-index: 1;
+      cursor: crosshair;
+      touch-action: none;
     }
 
     /* Hidden Webcam Video */
@@ -108,6 +156,7 @@
       width: 1px;
       height: 1px;
       opacity: 0;
+      visibility: hidden;
       pointer-events: none;
       z-index: -10;
     }
@@ -217,12 +266,15 @@
     .status-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
-      background: var(--cyan);
-      box-shadow: 0 0 10px var(--cyan);
+      background: #73777d;
+      box-shadow: none;
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      animation: pulse-dot 2.2s infinite ease-in-out;
+    }
+    .status-dot.connected {
+      background: #64c985;
+      box-shadow: 0 0 10px rgba(100, 201, 133, 0.45);
     }
     .status-dot.locking {
       background: var(--gold);
@@ -233,6 +285,7 @@
       box-shadow: 0 0 18px var(--crimson);
       animation: dot-blast 0.35s infinite;
     }
+    .status-dot.error { background: var(--crimson); box-shadow: 0 0 12px var(--crimson); }
     @keyframes pulse-dot {
       0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
       50%       { transform: translate(-50%, -50%) scale(1.5); opacity: 0.45; }
@@ -627,6 +680,7 @@
     }
     #reveal-controls.visible {
       opacity: 1;
+      visibility: visible;
       pointer-events: auto;
       transform: translateX(-50%) translateY(-12px);
     }
@@ -695,9 +749,297 @@
       .hud-icon-btn span:last-child { display: none; }
       .fps-chip { display: none; }
     }
+
+    :root {
+      --surface: rgba(11, 13, 17, 0.92);
+      --border: rgba(255, 255, 255, 0.12);
+      --border-warm: rgba(255, 149, 0, 0.35);
+      --text-secondary: rgba(238, 239, 242, 0.68);
+      --text-muted: rgba(238, 239, 242, 0.44);
+      --blur: none;
+    }
+
+    html, body, #app-container { min-height: 100%; }
+    #app-container {
+      height: 100vh;
+      height: 100dvh;
+      background: #08090b;
+    }
+    #render-canvas {
+      filter: none;
+      background: #101114;
+      touch-action: manipulation;
+    }
+    #top-hud-bar {
+      padding: max(12px, env(safe-area-inset-top)) clamp(12px, 3vw, 36px) 0;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 14px;
+    }
+    .hud-panel-left { gap: 8px; }
+    .hud-panel-right { gap: 8px; }
+    .hud-chip, .hud-icon-btn, .fps-chip, .btn-subtle {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+    }
+    .hud-logo-center { flex-direction: column; align-items: center; gap: 3px; }
+    #top-logo {
+      height: 38px;
+      max-width: min(220px, 24vw);
+      filter: drop-shadow(0 2px 8px #000);
+    }
+    .site-version {
+      color: rgba(255, 255, 255, 0.55);
+      font: 9px var(--font-mono);
+      letter-spacing: 2px;
+    }
+    .brand-wordmark {
+      color: #f1f1f1;
+      font: 700 11px var(--font-display);
+      letter-spacing: 2px;
+    }
+    .brand-subtitle {
+      color: #a3a3a3;
+      font-size: 8px;
+      letter-spacing: 1.6px;
+    }
+    .camera-selector {
+      position: absolute;
+      z-index: 25;
+      top: 104px;
+      left: clamp(12px, 3vw, 36px);
+      width: 290px;
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(8, 9, 11, 0.9);
+    }
+    .camera-option, .lock-control, .settings-control {
+      min-height: 44px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 0 13px;
+      background: transparent;
+      color: var(--text-secondary);
+      font: 600 10px var(--font-mono);
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+    }
+    .camera-option[aria-pressed="true"] {
+      border-color: rgba(255, 149, 0, 0.5);
+      background: rgba(255, 149, 0, 0.14);
+      color: #ffc16b;
+    }
+    .camera-option:disabled, .lock-control:disabled, .btn-power-fire:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      filter: grayscale(0.45);
+    }
+    .camera-option:focus-visible, .lock-control:focus-visible,
+    .settings-control:focus-visible, .hud-icon-btn:focus-visible,
+    .btn-power-fire:focus-visible, .btn-primary:focus-visible,
+    .btn-subtle:focus-visible {
+      outline: 2px solid #ffb34d;
+      outline-offset: 3px;
+    }
+    #camera-switch-status {
+      position: absolute;
+      z-index: 25;
+      top: 164px;
+      left: clamp(12px, 3vw, 36px);
+      width: 290px;
+      min-height: 12px;
+      color: #ffc16b;
+      font: 9px var(--font-mono);
+      text-align: center;
+      letter-spacing: 0.8px;
+    }
+    .tech-panel {
+      position: absolute;
+      z-index: 20;
+      display: none;
+      top: 132px;
+      right: clamp(12px, 3vw, 36px);
+      width: min(245px, calc(100vw - 24px));
+      padding: 15px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(9, 10, 12, 0.9);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+      pointer-events: auto;
+    }
+    .tech-panel h2 {
+      margin-bottom: 10px;
+      color: #f1f1f1;
+      font: 600 10px var(--font-mono);
+      letter-spacing: 1.5px;
+    }
+    .tech-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      color: var(--text-secondary);
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .tech-row strong { color: #e6e6e6; font-weight: 500; text-align: right; }
+    .tech-row strong[data-state="active"] { color: #ffbd69; }
+    .tech-row strong[data-state="good"] { color: #8bddaa; }
+    .panel-note {
+      margin-top: 9px;
+      color: #999;
+      font: 9px/1.5 var(--font-mono);
+    }
+    #bottom-hud-bar {
+      padding: 0 14px max(14px, env(safe-area-inset-bottom));
+      gap: 12px;
+    }
+    .trigger-section { gap: 10px; }
+    .trigger-controls { display: flex; justify-content: center; gap: 9px; }
+    .lock-control {
+      min-width: 142px;
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(10, 12, 16, 0.92);
+      color: #eee;
+    }
+    .lock-control:not(:disabled):hover, .settings-control:hover {
+      border-color: var(--amber);
+      color: #ffc16b;
+    }
+    .btn-power-fire {
+      min-height: 52px;
+      padding: 14px 42px;
+      border-radius: 8px;
+      background: linear-gradient(120deg, #d94b06, #f08a18 56%, #a93120);
+      box-shadow: 0 8px 28px rgba(180, 65, 8, 0.3);
+    }
+    .pulse-ring { display: none; }
+    .trigger-hint { max-width: 90vw; line-height: 1.5; text-align: center; letter-spacing: 1px; }
+    .brand-row { align-items: flex-end; }
+    #bottom-logo { height: 23px; filter: drop-shadow(0 2px 6px #000); }
+    .overlay-backdrop { background: rgba(3, 4, 6, 0.94); backdrop-filter: none; }
+    .modal-card { background: #101114; }
+    #error-modal { display: none; }
+    #settings-modal { display: none; }
+    #settings-modal[aria-hidden="false"] { display: flex; }
+    .settings-content {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 15px;
+      margin: 0 0 20px;
+      text-align: left;
+    }
+    .settings-field { display: grid; gap: 7px; color: #e6e6e6; font: 10px var(--font-mono); }
+    .settings-field small { color: #a5a5a5; font: 9px/1.5 var(--font-mono); }
+    .action-overlay {
+      position: absolute;
+      z-index: 18;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      gap: 12px;
+      background: radial-gradient(ellipse, rgba(255, 108, 13, 0.25), rgba(8, 9, 11, 0.28) 48%, transparent 76%);
+      color: white;
+      font: 700 clamp(20px, 4vw, 38px) var(--font-display);
+      letter-spacing: 0.16em;
+      text-align: center;
+      text-shadow: 0 0 26px rgba(255, 113, 22, 0.75);
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 180ms ease;
+    }
+    .action-overlay.visible { opacity: 1; visibility: visible; }
+    .action-overlay small { font: 10px var(--font-mono); letter-spacing: 0.18em; }
+    .action-overlay button {
+      min-height: 44px;
+      margin: 8px auto 0;
+      padding: 0 18px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 6px;
+      background: rgba(9, 10, 12, 0.85);
+      color: white;
+      font: 10px var(--font-mono);
+      letter-spacing: 0.12em;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    #reveal-controls { z-index: 30; bottom: 112px; }
+    .settings-control { min-width: 44px; padding: 0 12px; }
+    .logo-fallback { display: none; color: #f4f4f4; font: 700 13px var(--font-display); letter-spacing: 2px; }
+    img.logo-missing { display: none; }
+    img.logo-missing + .logo-fallback { display: inline-flex; }
+
+    @media (min-width: 900px) {
+      .tech-panel { top: 126px; }
+      #render-canvas { object-fit: contain; }
+    }
+    @media (max-width: 700px) {
+      #top-hud-bar {
+        grid-template-columns: 1fr auto;
+        align-items: start;
+        padding: max(9px, env(safe-area-inset-top)) 10px 0;
+      }
+      .hud-logo-center { grid-column: 1 / -1; grid-row: 1; }
+      #top-logo { height: 27px; max-width: 175px; }
+      .site-version { display: none; }
+      .hud-panel-left { grid-column: 1; grid-row: 2; }
+      .hud-panel-right { grid-column: 2; grid-row: 2; }
+      .hud-panel-right > .hud-btn-group { flex-wrap: wrap; justify-content: flex-end; }
+      #btn-camera-switch { display: none; }
+      .camera-selector { top: 140px; left: 10px; width: min(290px, calc(100vw - 20px)); }
+      #camera-switch-status { top: 200px; left: 10px; width: min(290px, calc(100vw - 20px)); }
+      .camera-option { flex: 1; padding: 0 7px; font-size: 9px; }
+      #camera-switch-status { font-size: 8px; }
+      .tech-panel { top: 189px; right: 10px; width: min(195px, calc(100vw - 20px)); padding: 10px; }
+      .tech-panel h2 { margin-bottom: 5px; }
+      .tech-row { padding: 5px 0; font-size: 8px; }
+      .panel-note { display: none; }
+      #bottom-hud-bar { padding: 0 10px max(10px, env(safe-area-inset-bottom)); gap: 9px; }
+      #reveal-controls { bottom: calc(104px + env(safe-area-inset-bottom)); }
+      .trigger-controls { width: 100%; }
+      .btn-power-fire { flex: 1; max-width: 280px; min-height: 50px; padding: 12px 14px; }
+      .lock-control { flex: 1; min-width: 125px; }
+      #bottom-logo { height: 18px; }
+      .brand-row { align-items: center; }
+    }
+    @media (max-width: 380px) {
+      .tech-panel { top: 189px; width: 175px; }
+      .hud-chip { font-size: 7.5px; }
+      .hud-icon-btn { min-height: 40px; }
+      .lock-control { min-width: 0; padding: 0 8px; font-size: 8px; }
+      .btn-power-fire { font-size: 10px; letter-spacing: 1px; }
+      .trigger-hint { font-size: 7.5px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #intro-logo.is-visible { animation: intro-logo-fade 3s linear both !important; }
+    }
+    @keyframes intro-logo-fade {
+      0% { opacity: 0; }
+      18%, 78% { opacity: 1; }
+      100% { opacity: 0; }
+    }
   </style>
 </head>
 <body>
+
+  <div id="intro-sequence" aria-hidden="true">
+    <img id="intro-logo" src="jailer2_logo.png" alt="">
+  </div>
 
   <div id="app-container">
     <!-- Widescreen Letterbox Bars -->
@@ -706,9 +1048,10 @@
 
     <!-- Background Theme Music (Jailer 2 BGM Track) -->
     <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
+    <audio id="lock-bgm-audio" src="hukum-reloaded.mp3" loop preload="auto"></audio>
 
     <!-- Main Output Canvas -->
-    <canvas id="render-canvas"></canvas>
+    <canvas id="render-canvas" aria-label="Live camera preview with targeting overlay"></canvas>
 
     <!-- Hidden Video Source -->
     <video id="webcam-video" autoplay playsinline muted></video>
@@ -716,72 +1059,101 @@
     <!-- ══ TOP HUD — 3-Column: [Status+Tracking] | [Logo] | [Controls] ══ -->
     <header id="top-hud-bar">
 
-      <!-- LEFT: Status + Tracking -->
+      <!-- LEFT: Status + Brand -->
       <div class="hud-panel-left">
         <div class="hud-chip">
           <div class="status-dot-wrap">
             <div id="status-dot" class="status-dot"></div>
           </div>
-          <span id="state-label">ARMED // READY</span>
+          <span id="state-label">CAMERA REQUIRED</span>
         </div>
         <div class="hud-chip accent">
-          <span id="tracking-info">ALIGN GLASSES IN SCOPE</span>
+          <span id="tracking-info">TAP PREVIEW TO PLACE RETICLE</span>
+        </div>
+        <div>
+          <div class="brand-wordmark">PANBUU</div>
+          <div class="brand-subtitle">CINEMATIC VISION SYSTEM</div>
         </div>
       </div>
 
       <!-- CENTER: Movie Logo -->
       <div class="hud-logo-center">
-        <img id="top-logo" src="jailer2_logo.png" alt="JAILER 2 Logo" />
+        <img id="top-logo" src="jailer2_logo.png" alt="JAILER 2 Logo" onerror="this.classList.add('logo-missing')" />
+        <span class="logo-fallback" aria-hidden="true">JAILER</span>
+        <span class="site-version">V1.0 // VISUAL SIMULATION</span>
       </div>
 
       <!-- RIGHT: Action controls -->
       <div class="hud-panel-right">
         <div class="hud-btn-group">
           <button id="btn-camera-switch" class="hud-icon-btn" title="Flip Camera">
-            <span id="camera-icon">🤳</span>
             <span id="camera-label">FLIP</span>
-          </button>
-          <button id="btn-target-mode" class="hud-icon-btn" title="Target Mode">
-            <span id="target-mode-icon">🎯</span>
-            <span id="target-mode-text">SPECS</span>
           </button>
           <button id="btn-audio-toggle" class="hud-icon-btn" title="Toggle Audio">
             <span id="audio-icon">🔊</span>
             <span id="audio-vol-text">LOUD</span>
           </button>
-        </div>
-        <div style="display:flex;justify-content:flex-end;">
-          <span id="fps-counter" class="fps-chip">60 FPS</span>
+          <button id="btn-settings" class="settings-control" type="button" aria-label="Open settings">SETTINGS</button>
         </div>
       </div>
 
     </header>
+
+    <div class="camera-selector" role="group" aria-label="Select camera">
+      <button class="camera-option" id="btn-front-camera" type="button" aria-pressed="true">FRONT CAMERA</button>
+      <button class="camera-option" id="btn-rear-camera" type="button" aria-pressed="false">REAR CAMERA</button>
+    </div>
+    <div id="camera-switch-status" role="status" aria-live="polite">CAMERA NOT CONNECTED</div>
+
+    <aside class="tech-panel" aria-label="Live system status">
+      <h2>SYSTEM STATUS</h2>
+      <div class="tech-row"><span>CAMERA</span><strong id="status-camera">OFFLINE</strong></div>
+      <div class="tech-row"><span>RESOLUTION</span><strong id="status-resolution">--</strong></div>
+      <div class="tech-row"><span>AIM</span><strong id="status-vision">MANUAL</strong></div>
+      <div class="tech-row"><span>TARGET</span><strong id="status-target">NONE</strong></div>
+      <div class="tech-row"><span>RENDER FPS</span><strong id="render-fps">--</strong></div>
+      <p class="panel-note">Targets are placed manually in the camera preview.</p>
+    </aside>
+
+    <div class="action-overlay" id="action-overlay" aria-live="assertive" aria-hidden="true">
+      <span id="action-overlay-title">SYSTEM ACTIVATED</span>
+      <small>VISUAL SIMULATION ONLY</small>
+      <button id="btn-cancel-action" type="button">CANCEL SIMULATION</button>
+    </div>
+    <div class="lock-countdown" id="lock-countdown" role="status" aria-live="assertive" hidden>
+      <span class="lock-countdown-label">SIMULATION STARTS IN</span>
+      <span id="lock-countdown-value">3</span>
+    </div>
 
     <!-- ══ BOTTOM HUD — Fire Button + Brand Row ══ -->
     <footer id="bottom-hud-bar">
 
       <!-- IGNITE BLAST trigger -->
       <div class="trigger-section">
-        <button id="btn-power-fire" class="btn-power-fire" title="Tap to Ignite Blast">
+        <div class="trigger-controls">
+        <button id="btn-target-lock" class="lock-control" type="button" disabled aria-pressed="false">LOCK TARGET</button>
+        <button id="btn-power-fire" class="btn-power-fire" title="Run visual simulation" disabled>
           <div class="pulse-ring"></div>
           <div class="pulse-ring pulse-ring-2"></div>
           <span class="fire-icon">⚡</span>
           <span>IGNITE BLAST</span>
         </button>
-        <div class="trigger-hint">TAP BUTTON OR SCREEN TO DETONATE</div>
+        </div>
+        <div class="trigger-hint" id="action-hint">TAP THE PREVIEW TO PLACE A RETICLE, THEN LOCK IT</div>
       </div>
 
       <!-- Brand row -->
       <div class="brand-row">
-        <img id="bottom-logo" src="panbhu_logo.png" alt="PANBHU Logo" />
+        <img id="bottom-logo" src="panbhu_logo.png" alt="PANBUU Logo" onerror="this.classList.add('logo-missing')" />
+        <span class="logo-fallback" aria-hidden="true">PANBUU</span>
         <button id="btn-fullscreen" class="btn-subtle" title="Toggle Fullscreen">⛶ FULLSCREEN</button>
       </div>
 
     </footer>
 
     <!-- Act 4 Reveal Controls & Replay -->
-    <div id="reveal-controls">
-      <div class="reveal-caption">COOL HEROES DON'T LOOK AT EXPLOSIONS</div>
+    <div id="reveal-controls" aria-hidden="true">
+      <div class="reveal-caption">VISUAL SIMULATION COMPLETE</div>
       <button id="btn-replay-pill" class="btn-replay">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -795,37 +1167,37 @@
     <div id="start-modal" class="overlay-backdrop">
       <div class="modal-card">
         <div class="modal-badge">Jailer 2 // WebAR Experience</div>
-        <h1 class="modal-title">Glasses Blast</h1>
+        <h1 class="modal-title">Cinematic Vision</h1>
         <p class="modal-desc">
-          Hold your real spectacles in front of the sniper target, or pinch your fingers to create a virtual lens.
+          Start the camera, tap anywhere in the preview to place your reticle, then lock your target. The cinematic effect is visual-only.
         </p>
 
         <div class="instructions-grid">
           <div class="step-box">
-            <div class="step-num">ACT 1: TARGET LOCK</div>
-            <div class="step-text">Hold real glasses in the scope steady for 1s to trigger TARGET FIXED.</div>
+            <div class="step-num">01 / START</div>
+            <div class="step-text">Allow camera access to open the live preview.</div>
           </div>
           <div class="step-box">
-            <div class="step-num">ACT 2: BLAST IN LENS</div>
-            <div class="step-text">Watch the blast ignite INSIDE the spectacle lens glass.</div>
+            <div class="step-num">02 / PLACE</div>
+            <div class="step-text">Tap the preview to position the manual reticle.</div>
           </div>
           <div class="step-box">
-            <div class="step-num">ACT 3: BURST</div>
-            <div class="step-text">Fireball breaches the rim & swallows screen with loud BGM!</div>
+            <div class="step-num">03 / LOCK</div>
+            <div class="step-text">Press Lock Target to confirm your selected position.</div>
           </div>
           <div class="step-box">
-            <div class="step-num">ACT 4: HERO REVEAL</div>
-            <div class="step-text">Lower your glasses. The inferno roars behind your back.</div>
+            <div class="step-num">04 / SIMULATE</div>
+            <div class="step-text">Run a short visual-only cinematic effect. No real-world action occurs.</div>
           </div>
         </div>
 
         <button id="btn-start" class="btn-primary">
-          INITIALIZE CAMERA & SOUND
+          START CAMERA PREVIEW
         </button>
 
         <div id="loading-indicator">
           <div class="loading-spinner"></div>
-          <span id="loading-text">Downloading MediaPipe Vision Models...</span>
+          <span id="loading-text">Starting camera...</span>
         </div>
       </div>
     </div>
@@ -836,11 +1208,28 @@
         <div class="modal-badge" style="background: rgba(255,42,75,0.15); color: var(--accent-red); border-color: rgba(255,42,75,0.3);">Access Notice</div>
         <h2 class="modal-title error-title">Camera Permission Required</h2>
         <p id="error-message" class="modal-desc">
-          We need access to your webcam to track your lens gesture and segment the selfie reveal. Please enable camera permissions in your browser and click Retry.
+          Camera access is needed for the live preview. Check your browser permission and secure connection, then retry.
         </p>
         <button id="btn-retry" class="btn-primary" style="background: var(--accent-red);">
-          RETRY PERMISSION
+          RETRY CAMERA
         </button>
+      </div>
+    </div>
+
+    <div id="settings-modal" class="overlay-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-hidden="true">
+      <div class="modal-card">
+          <div class="modal-badge">MANUAL AIM // V1.0</div>
+          <h2 class="modal-title" id="settings-title">Settings & Help</h2>
+          <div class="settings-content">
+            <label class="settings-field">
+              <span><input id="sound-enabled" type="checkbox" checked> Sound effects</span>
+            </label>
+            <label class="settings-field">
+              <span><input id="reduce-motion" type="checkbox"> Reduce motion</span>
+            </label>
+            <p class="modal-desc">Camera access requires HTTPS or localhost. This is a visual-only animation; no external device or real-world action is triggered.</p>
+          </div>
+          <button id="btn-close-settings" class="btn-primary" type="button">DONE</button>
       </div>
     </div>
   </div>
@@ -849,30 +1238,14 @@
        APPLICATION LOGIC & PIPELINE (ES MODULE)
        ========================================================================== -->
   <script type="module">
-    // CDN Imports for MediaPipe Tasks Vision (Pinned Version 0.10.14)
-    import {
-      FilesetResolver,
-      HandLandmarker,
-      FaceLandmarker,
-      ImageSegmenter
-    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
-
     /* ==========================================================================
        CONSTANTS & CONFIGURATION
        ========================================================================== */
     const CONFIG = {
-      STEADY_MAX_DELTA: 4.5,     // Movement threshold to count as "steady" (responsive & stable)
-      LOCK_DURATION_SEC: 1.0,    // Time required holding steady to lock
       IN_LENS_BLAST_SEC: 0.45,   // Act 2 duration (clipped inside lens)
       BURST_EXPAND_SEC: 0.75,    // Act 3 duration (overflows screen)
-      // Camera smoothing: EMA half-life in seconds (lower = snappier, higher = smoother)
-      LENS_SMOOTH_HALFLIFE: 0.06,   // Position & angle smooth half-life (~60ms = very responsive)
-      LENS_SIZE_HALFLIFE: 0.10,     // Size smooth half-life (~100ms = slightly more damped)
-      RETICLE_SMOOTH_HALFLIFE: 0.18, // Tap-repositioned reticle smooth half-life
-      VISION_WASM_PATH: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm",
-      HAND_MODEL_URL: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-      FACE_MODEL_URL: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-      SEGMENTER_MODEL_URL: "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite"
+      LOCK_COUNTDOWN_SECONDS: 3,
+      RETICLE_SMOOTH_HALFLIFE: 0.18
     };
 
     // Framerate-independent EMA alpha from half-life and delta time
@@ -881,29 +1254,15 @@
       return 1 - Math.exp(-0.6931471805599453 * dt / Math.max(halfLife, 0.001));
     }
 
-    // Shortest-path angle difference (handles wrap-around between -PI and PI)
-    function angleDiff(target, current) {
-      let d = (target - current) % (Math.PI * 2);
-      if (d > Math.PI) d -= Math.PI * 2;
-      if (d < -Math.PI) d += Math.PI * 2;
-      return d;
-    }
-
     /* State Machine States */
     const STATES = {
       IDLE: 'IDLE',
       LOCKING: 'LOCKING',
+      LOCKED: 'LOCKED',
       BLAST_IN_LENS: 'BLAST_IN_LENS',
       BURST: 'BURST',
       REVEAL: 'REVEAL',
       RESET: 'RESET'
-    };
-
-    /* Target Detection Modes */
-    const TARGET_MODES = {
-      REAL_SPECS: 'REAL_SPECS',       // Real physical spectacles held into sniper reticle
-      VIRTUAL_PINCH: 'VIRTUAL_PINCH', // Finger pinch virtual spectacles
-      WORN_SPECS: 'WORN_SPECS'        // Real spectacles worn on face (Face Mesh)
     };
 
     /* ==========================================================================
@@ -915,45 +1274,36 @@
       lastFrameTime: performance.now(),
       fps: 60,
 
-      // Target Mode: 'REAL_SPECS' | 'VIRTUAL_PINCH' | 'WORN_SPECS'
-      targetMode: TARGET_MODES.REAL_SPECS,
-
       // Canvas & Rendering
       canvas: document.getElementById('render-canvas'),
       ctx: null,
       width: 1280,
       height: 720,
 
-      // Offscreen canvas for selfie cutout compositing
-      maskCanvas: document.createElement('canvas'),
-      maskCtx: null,
-      personCanvas: document.createElement('canvas'),
-      personCtx: null,
-      maskImageData: null,
-      hasValidMask: false,
-
       // Webcam Video
       video: document.getElementById('webcam-video'),
       videoReady: false,
       facingMode: 'user', // 'user' (selfie/front) | 'environment' (rear/back)
       isMirrored: true,   // Mirrored for selfie camera, unmirrored for rear camera
-
-      // MediaPipe Vision Tasks
-      vision: null,
-      handLandmarker: null,
-      faceLandmarker: null,
-      imageSegmenter: null,
-      isSegmenting: false,
-      lastVideoTime: -1,
+      cameraSwitching: false,
+      cameraStream: null,
+      cameraDevices: [],
+      activeCameraLabel: "",
+      canLock: false,
+      manualTargetPlaced: false,
+      targetLocked: false,
+      lockCountdownEndsAt: 0,
+      lockCountdownDisplayed: null,
+      renderFps: 0,
+      renderFpsFrames: 0,
+      renderFpsLastAt: performance.now(),
+      soundEnabled: true,
+      reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 
       // Lens Tracking & Smoothing (Exponential Moving Average)
-      rawLens: null,
-      rawFaceLens: null,
-      realSpecsPos: {
+      manualTarget: {
         x: 640,
-        y: 330,
-        rx: 135,
-        ry: 90
+        y: 330
       },
       smoothLens: {
         x: 640,
@@ -963,15 +1313,14 @@
         angle: 0,
         detected: false
       },
-      prevLensPos: { x: 640, y: 330, rx: 135 },
       lockedLens: null,
 
-      // Steady Lock Timer
-      steadyTime: 0,
       lockProgress: 0,
 
       // BGM Music & Audio Control (Jailer 2)
       bgmAudio: document.getElementById('bgm-audio'),
+      lockBgmAudio: document.getElementById('lock-bgm-audio'),
+      lockBgmActive: false,
       bgmTargetVol: 0.32,  // Medium volume by default
       bgmCurrentVol: 0.32,
       bgmMuted: false,
@@ -983,8 +1332,6 @@
       // Smooth shake oscillators: two orthogonal damped sinusoids
       shakeOscX: { phase: 0, freq: 22, ampDecay: 0 },
       shakeOscY: { phase: 1.57, freq: 17, ampDecay: 0 },
-      // Smooth target reticle position (lerped separately from snap)
-      smoothReticle: { x: 640, y: 330, rx: 135, ry: 90 },
       flashAlpha: 0,
 
       // Time scale for slow motion ramp in Act 2
@@ -1002,7 +1349,6 @@
       stateLabel: document.getElementById('state-label'),
       trackingInfo: document.getElementById('tracking-info'),
       statusDot: document.getElementById('status-dot'),
-      fpsCounter: document.getElementById('fps-counter'),
       revealControls: document.getElementById('reveal-controls'),
       startModal: document.getElementById('start-modal'),
       errorModal: document.getElementById('error-modal'),
@@ -1011,16 +1357,30 @@
       loadingText: document.getElementById('loading-text'),
 
       // Interactive HUD controls
-      targetModeText: document.getElementById('target-mode-text'),
-      targetModeIcon: document.getElementById('target-mode-icon'),
-      targetModeLabelBottom: document.getElementById('target-mode-label-bottom'),
       cameraLabel: document.getElementById('camera-label'),
       cameraLabelBottom: document.getElementById('camera-label-bottom'),
-      cameraIcon: document.getElementById('camera-icon'),
       audioVolText: document.getElementById('audio-vol-text'),
       audioIcon: document.getElementById('audio-icon'),
       topLogo: document.getElementById('top-logo'),
-      bottomLogo: document.getElementById('bottom-logo')
+      bottomLogo: document.getElementById('bottom-logo'),
+      cameraSwitchStatus: document.getElementById('camera-switch-status'),
+      statusCamera: document.getElementById('status-camera'),
+      statusResolution: document.getElementById('status-resolution'),
+      statusVision: document.getElementById('status-vision'),
+      statusTarget: document.getElementById('status-target'),
+      lockButton: document.getElementById('btn-target-lock'),
+      blastButton: document.getElementById('btn-power-fire'),
+      actionHint: document.getElementById('action-hint'),
+      actionOverlay: document.getElementById('action-overlay'),
+      actionOverlayTitle: document.getElementById('action-overlay-title'),
+      lockCountdown: document.getElementById('lock-countdown'),
+      lockCountdownValue: document.getElementById('lock-countdown-value'),
+      renderFpsLabel: document.getElementById('render-fps'),
+      frontCameraButton: document.getElementById('btn-front-camera'),
+      rearCameraButton: document.getElementById('btn-rear-camera'),
+      settingsModal: document.getElementById('settings-modal'),
+      soundToggle: document.getElementById('sound-enabled'),
+      motionToggle: document.getElementById('reduce-motion')
     };
 
     /* ==========================================================================
@@ -1643,326 +2003,282 @@
       }
     }
 
-    /* ==========================================================================
-       SECTION 3: COMPUTER VISION & TRACKING SETUP
-       ========================================================================== */
-    async function initVisionTasks() {
-      try {
-        app.loadingIndicator.style.display = 'block';
-        app.loadingText.textContent = "Resolving WASM vision runtimes...";
-
-        // 1. Fileset Resolver for WASM Binaries
-        app.vision = await FilesetResolver.forVisionTasks(CONFIG.VISION_WASM_PATH);
-
-        app.loadingText.textContent = "Loading Hand Landmarker model...";
-        // 2. Hand Landmarker for spectacle / finger pinch lens position
-        app.handLandmarker = await HandLandmarker.createFromOptions(app.vision, {
-          baseOptions: {
-            modelAssetPath: CONFIG.HAND_MODEL_URL,
-            delegate: "GPU"
-          },
-          runningMode: "VIDEO",
-          numHands: 2
-        });
-
-        app.loadingText.textContent = "Loading Selfie Segmenter model...";
-        // 3. Image Segmenter for Act 4 Action Hero Cutout
-        app.imageSegmenter = await ImageSegmenter.createFromOptions(app.vision, {
-          baseOptions: {
-            modelAssetPath: CONFIG.SEGMENTER_MODEL_URL,
-            delegate: "GPU"
-          },
-          runningMode: "VIDEO",
-          outputCategoryMask: true,
-          outputConfidenceMasks: false
-        });
-
-        // 4. Optional Face Landmarker for Worn Real Specs
-        try {
-          app.loadingText.textContent = "Loading Face Landmarker model (for worn glasses)...";
-          app.faceLandmarker = await FaceLandmarker.createFromOptions(app.vision, {
-            baseOptions: { modelAssetPath: CONFIG.FACE_MODEL_URL, delegate: "GPU" },
-            runningMode: "VIDEO",
-            numFaces: 1
-          });
-        } catch (faceErr) {
-          console.warn("FaceLandmarker GPU init failed, trying CPU:", faceErr);
-          try {
-            app.faceLandmarker = await FaceLandmarker.createFromOptions(app.vision, {
-              baseOptions: { modelAssetPath: CONFIG.FACE_MODEL_URL, delegate: "CPU" },
-              runningMode: "VIDEO",
-              numFaces: 1
-            });
-          } catch (e) {
-            console.warn("FaceLandmarker unavailable, using optical reticle:", e);
-          }
+    function waitForVideoReady() {
+      return new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          cleanup();
+          reject(new Error("The selected camera did not provide a video frame."));
+        }, 10000);
+        const onReady = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = () => {
+          cleanup();
+          reject(new Error("The selected camera could not start."));
+        };
+        const cleanup = () => {
+          clearTimeout(timeout);
+          app.video.removeEventListener('loadeddata', onReady);
+          app.video.removeEventListener('error', onError);
+        };
+        if (app.video.readyState >= 2 && app.video.videoWidth > 0) {
+          cleanup();
+          resolve();
+          return;
         }
+        app.video.addEventListener('loadeddata', onReady);
+        app.video.addEventListener('error', onError);
+      });
+    }
 
-        // Start Jailer 2 Theme Music (Starts at medium volume)
-        startBgmMusic();
-
-        app.loadingIndicator.style.display = 'none';
-        app.startModal.classList.add('hidden');
-        console.log("MediaPipe vision tasks loaded successfully!");
-      } catch (err) {
-        console.error("Error initializing MediaPipe tasks:", err);
-        // Fallback retry with CPU delegate if GPU initialization failed
-        try {
-          app.loadingText.textContent = "Retrying vision models on CPU delegate...";
-          app.handLandmarker = await HandLandmarker.createFromOptions(app.vision, {
-            baseOptions: { modelAssetPath: CONFIG.HAND_MODEL_URL, delegate: "CPU" },
-            runningMode: "VIDEO",
-            numHands: 2
-          });
-          app.imageSegmenter = await ImageSegmenter.createFromOptions(app.vision, {
-            baseOptions: { modelAssetPath: CONFIG.SEGMENTER_MODEL_URL, delegate: "CPU" },
-            runningMode: "VIDEO",
-            outputCategoryMask: true
-          });
-          startBgmMusic();
-          app.loadingIndicator.style.display = 'none';
-          app.startModal.classList.add('hidden');
-        } catch (cpuErr) {
-          showError("Failed to initialize WebAssembly Vision models: " + (cpuErr.message || cpuErr));
-        }
+    async function openCamera(facingMode) {
+      if (!window.isSecureContext) {
+        throw new Error("Camera access requires HTTPS or localhost. Open the GitHub Pages HTTPS site or a secure local address.");
       }
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access is not supported by this browser.");
+      let stream;
+      try {
+        const cameraPattern = facingMode === 'environment'
+          ? /rear|back|environment|world/i
+          : /front|user|selfie|facetime/i;
+        const preferredDevice = app.cameraDevices.find(device => cameraPattern.test(device.label));
+        const videoConstraints = {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: { ideal: facingMode }
+        };
+        if (preferredDevice) videoConstraints.deviceId = { exact: preferredDevice.deviceId };
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false
+        });
+
+        const track = stream.getVideoTracks()[0];
+        const actualMode = track?.getSettings?.().facingMode;
+        const settingsDeviceId = track?.getSettings?.().deviceId;
+        if (facingMode === 'environment' && (actualMode === 'user'
+          || (!actualMode && !preferredDevice))) {
+          throw new Error("A rear camera is not available on this device.");
+        }
+
+        app.video.pause();
+        app.video.srcObject = null;
+        app.video.srcObject = stream;
+        await waitForVideoReady();
+        await app.video.play();
+        app.cameraStream = stream;
+        if (navigator.mediaDevices.enumerateDevices) {
+          try {
+            app.cameraDevices = (await navigator.mediaDevices.enumerateDevices())
+              .filter(device => device.kind === 'videoinput');
+          } catch (err) {
+            console.warn("Camera device names could not be enumerated:", err);
+            app.cameraDevices = [];
+          }
+        } else {
+          console.warn("Camera device enumeration is not supported; using facingMode selection.");
+          app.cameraDevices = [];
+        }
+        app.activeCameraLabel = app.cameraDevices.find(device => device.deviceId === settingsDeviceId)?.label
+          || preferredDevice?.label || "";
+        app.facingMode = actualMode === 'environment' || actualMode === 'user'
+          ? actualMode
+          : facingMode;
+        app.isMirrored = app.facingMode === 'user';
+        app.width = app.video.videoWidth;
+        app.height = app.video.videoHeight;
+        app.canvas.width = app.width;
+        app.canvas.height = app.height;
+        app.manualTarget.x = app.width * 0.5;
+        app.manualTarget.y = app.height * 0.5;
+        app.smoothLens.x = app.manualTarget.x;
+        app.smoothLens.y = app.manualTarget.y;
+        app.videoReady = true;
+        app.manualTargetPlaced = false;
+        app.canLock = false;
+        app.statusVision.textContent = "MANUAL AIM";
+        app.stateLabel.textContent = "MANUAL AIM";
+        updateCameraUI();
+        return true;
+      } catch (err) {
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        if (app.video.srcObject === stream) app.video.srcObject = null;
+        throw err;
+      }
+    }
+
+    function explainCameraError(error) {
+      if (!window.isSecureContext) {
+        return "Camera access requires HTTPS or localhost. Open the GitHub Pages HTTPS site or a secure local address.";
+      }
+      if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
+        return "Camera permission was denied. Allow camera access in your browser settings, then retry.";
+      }
+      if (error?.name === "NotFoundError" || error?.name === "OverconstrainedError") {
+        return "The requested camera is unavailable. Select another camera or check that it is connected.";
+      }
+      if (error?.name === "NotReadableError") {
+        return "The camera is in use by another app or could not start. Close other camera apps and retry.";
+      }
+      return error?.message || "Camera access failed. Check the permission and retry.";
     }
 
     async function initWebcam() {
+      if (app.cameraSwitching) return false;
+      app.cameraSwitching = true;
+      const startButton = document.getElementById('btn-start');
+      startButton.disabled = true;
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          if (!window.isSecureContext) {
-            showError("Mobile camera requires HTTPS or localhost. If opening on your phone via Wi-Fi IP, mobile browsers block camera access unless accessed via HTTPS tunnel (localtunnel) or Chrome port forwarding.");
-            return;
-          }
-          showError("Camera API is not supported in this browser. Please use Google Chrome or Apple Safari.");
-          return;
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: { ideal: app.facingMode }
-          },
-          audio: false
-        });
-
-        app.video.srcObject = stream;
-        await new Promise((resolve) => {
-          const onReady = () => {
-            app.video.play().catch(() => {});
-            resolve();
-          };
-          if (app.video.readyState >= 2) {
-            onReady();
-          } else {
-            app.video.onloadeddata = onReady;
-            app.video.onloadedmetadata = onReady;
-          }
-        });
-
-        app.width = app.video.videoWidth || 1280;
-        app.height = app.video.videoHeight || 720;
-        app.canvas.width = app.width;
-        app.canvas.height = app.height;
-
-        app.realSpecsPos.x = app.width * 0.5;
-        app.realSpecsPos.y = app.height * 0.42;
-        app.realSpecsPos.rx = Math.min(145, app.width * 0.23);
-        app.realSpecsPos.ry = app.realSpecsPos.rx * 0.68;
-
-        app.maskCanvas.width = app.width;
-        app.maskCanvas.height = app.height;
-        app.personCanvas.width = app.width;
-        app.personCanvas.height = app.height;
-
-        app.videoReady = true;
-        updateCameraUI();
+        await openCamera(app.facingMode);
+        app.startModal.classList.add('hidden');
+        app.errorModal.style.display = 'none';
+        app.cameraSwitchStatus.textContent = `${app.facingMode === 'user' ? 'FRONT' : 'REAR'} CAMERA ACTIVE`;
+        app.loadingIndicator.style.display = 'none';
+        app.statusVision.textContent = "MANUAL AIM";
+        if (app.soundEnabled) startBgmMusic();
+        return true;
       } catch (err) {
-        console.error("Camera access error:", err);
-        showError("Webcam access was denied or not found. Please verify permissions in your browser bar.");
+        console.error("Camera initialization failed:", err);
+        showError(explainCameraError(err));
+        return false;
+      } finally {
+        app.cameraSwitching = false;
+        startButton.disabled = false;
+        updateCameraUI();
       }
     }
 
-    async function switchCamera() {
-      const newFacingMode = (app.facingMode === 'user') ? 'environment' : 'user';
-      app.facingMode = newFacingMode;
-      app.isMirrored = (newFacingMode === 'user');
-
-      // Stop existing tracks to free hardware camera
-      if (app.video && app.video.srcObject) {
-        try {
-          app.video.srcObject.getTracks().forEach(track => track.stop());
-        } catch (e) {}
+    async function switchCamera(facingMode = app.facingMode === 'user' ? 'environment' : 'user') {
+      if (app.cameraSwitching || !app.videoReady) return;
+      if (facingMode === app.facingMode) return;
+      const previousMode = app.facingMode;
+      app.cameraSwitching = true;
+      app.frontCameraButton.disabled = true;
+      app.rearCameraButton.disabled = true;
+      app.cameraSwitchStatus.textContent = "SWITCHING CAMERA...";
+      if (app.state !== STATES.IDLE) {
+        app.targetLocked = false;
+        app.canLock = false;
+        transitionTo(STATES.IDLE);
       }
+      app.videoReady = false;
+      app.manualTargetPlaced = false;
+      app.targetLocked = false;
+      app.canLock = false;
+      updateTargetUI();
+
+      if (app.cameraStream) {
+        app.cameraStream.getTracks().forEach(track => track.stop());
+        app.cameraStream = null;
+      }
+      app.video.srcObject = null;
 
       try {
-        const constraints = {
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: { ideal: newFacingMode }
-          },
-          audio: false
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        app.video.srcObject = stream;
-
-        await new Promise((resolve) => {
-          const onReady = () => {
-            app.video.play().catch(() => {});
-            resolve();
-          };
-          if (app.video.readyState >= 2) {
-            onReady();
-          } else {
-            app.video.onloadeddata = onReady;
-            app.video.onloadedmetadata = onReady;
-          }
-        });
-
-        app.width = app.video.videoWidth || 1280;
-        app.height = app.video.videoHeight || 720;
-        app.canvas.width = app.width;
-        app.canvas.height = app.height;
-
-        app.realSpecsPos.x = app.width * 0.5;
-        app.realSpecsPos.y = app.height * 0.42;
-        app.realSpecsPos.rx = Math.min(145, app.width * 0.23);
-        app.realSpecsPos.ry = app.realSpecsPos.rx * 0.68;
-
-        app.maskCanvas.width = app.width;
-        app.maskCanvas.height = app.height;
-        app.personCanvas.width = app.width;
-        app.personCanvas.height = app.height;
-
-        updateCameraUI();
-        console.log("Switched camera facing mode to:", newFacingMode);
+        await openCamera(facingMode);
+        app.cameraSwitchStatus.textContent = `${app.facingMode === 'user' ? 'FRONT' : 'REAR'} CAMERA ACTIVE`;
       } catch (err) {
-        console.warn("Could not switch camera, falling back to selfie:", err);
-        app.facingMode = 'user';
-        app.isMirrored = true;
+        console.warn("Requested camera could not be opened:", err);
+        const cameraError = explainCameraError(err);
+        app.cameraSwitchStatus.textContent = cameraError;
+        try {
+          await openCamera(previousMode);
+          app.cameraSwitchStatus.textContent = `${app.facingMode === 'user' ? 'FRONT' : 'REAR'} ACTIVE — ${cameraError}`;
+        } catch (restoreError) {
+          app.videoReady = false;
+          showError(`${cameraError} The previous camera could not be restored. Retry camera access.`);
+        }
+      } finally {
+        app.cameraSwitching = false;
+        app.frontCameraButton.disabled = false;
+        app.rearCameraButton.disabled = false;
         updateCameraUI();
       }
     }
 
     function updateCameraUI() {
-      if (app.cameraLabel) {
-        app.cameraLabel.textContent = (app.facingMode === 'user') ? "CAM: SELFIE" : "CAM: REAR";
-      }
-      if (app.cameraLabelBottom) {
-        app.cameraLabelBottom.textContent = (app.facingMode === 'user') ? "FLIP TO REAR" : "FLIP TO SELFIE";
-      }
-      if (app.cameraIcon) {
-        app.cameraIcon.textContent = (app.facingMode === 'user') ? "🤳" : "📷";
+      const isFront = app.facingMode === 'user';
+      app.statusDot.className = app.videoReady ? "status-dot connected" : "status-dot";
+      app.cameraLabel.textContent = isFront ? "FRONT" : "REAR";
+      app.frontCameraButton.disabled = !app.videoReady || app.cameraSwitching;
+      app.rearCameraButton.disabled = !app.videoReady || app.cameraSwitching;
+      app.frontCameraButton.setAttribute('aria-pressed', String(isFront));
+      app.rearCameraButton.setAttribute('aria-pressed', String(!isFront));
+      app.statusCamera.textContent = app.videoReady ? (isFront ? "FRONT" : "REAR") : "OFFLINE";
+      app.statusCamera.dataset.state = app.videoReady ? "good" : "";
+      app.statusResolution.textContent = app.videoReady ? `${app.width} × ${app.height}` : "--";
+    }
+
+    function updateTargetUI() {
+      const hasTarget = app.manualTargetPlaced;
+      app.lockButton.disabled = !app.targetLocked && !(app.canLock && hasTarget);
+      app.lockButton.textContent = app.targetLocked ? "UNLOCK TARGET" : "LOCK TARGET";
+      app.lockButton.setAttribute('aria-pressed', String(app.targetLocked));
+      app.blastButton.disabled = !app.targetLocked || app.state !== STATES.LOCKED;
+      app.statusTarget.textContent = app.targetLocked
+        ? "LOCKED"
+        : hasTarget ? "MANUAL" : "NONE";
+      app.statusTarget.dataset.state = app.targetLocked || hasTarget ? "good" : "";
+      if (!app.targetLocked) {
+        if (!app.videoReady) app.actionHint.textContent = "START CAMERA ACCESS TO BEGIN";
+        else if (!hasTarget) app.actionHint.textContent = "TAP THE PREVIEW TO PLACE A RETICLE";
+        else app.actionHint.textContent = "RETICLE PLACED — LOCK TARGET WHEN READY";
       }
     }
 
-    function processHandLandmarks(landmarksArray) {
-      if (!landmarksArray || landmarksArray.length === 0) {
-        app.rawLens = null;
-        return;
-      }
-
-      // Check detected hands for thumb tip (4) and index tip (8) or middle tip (12)
-      let bestPinch = null;
-
-      for (const hand of landmarksArray) {
-        const thumb = hand[4];
-        const index = hand[8];
-        const middle = hand[12];
-        if (!thumb) continue;
-
-        // Coordinates adapt to selfie (mirrored) vs rear camera (unmirrored)
-        const thumbX = app.isMirrored ? (1 - thumb.x) * app.width : thumb.x * app.width;
-        const thumbY = thumb.y * app.height;
-
-        let fingerX = 0, fingerY = 0, dist = 0;
-
-        if (index) {
-          const ix = app.isMirrored ? (1 - index.x) * app.width : index.x * app.width;
-          const iy = index.y * app.height;
-          const d = Math.hypot(ix - thumbX, iy - thumbY);
-          if (d >= 20 && d <= 320) {
-            fingerX = ix;
-            fingerY = iy;
-            dist = d;
-          }
-        }
-
-        // Secondary fallback: thumb & middle finger pinch
-        if (!dist && middle) {
-          const mx = app.isMirrored ? (1 - middle.x) * app.width : middle.x * app.width;
-          const my = middle.y * app.height;
-          const d = Math.hypot(mx - thumbX, my - thumbY);
-          if (d >= 20 && d <= 320) {
-            fingerX = mx;
-            fingerY = my;
-            dist = d;
-          }
-        }
-
-        if (dist > 0) {
-          const midX = (thumbX + fingerX) * 0.5;
-          const midY = (thumbY + fingerY) * 0.5;
-          const angle = Math.atan2(fingerY - thumbY, fingerX - thumbX);
-
-          // Lens radius proportional to pinch spread
-          const rx = Math.max(35, Math.min(220, dist * 0.65));
-          const ry = rx * 0.76;
-
-          bestPinch = { x: midX, y: midY, rx, ry, angle, dist };
-          break;
-        }
-      }
-
-      app.rawLens = bestPinch;
+    function lockTarget() {
+      if (app.targetLocked || !app.canLock || !app.manualTargetPlaced) return;
+      app.lockedLens = { ...app.smoothLens };
+      app.targetLocked = true;
+      transitionTo(STATES.LOCKED);
+      updateTargetUI();
     }
 
-    function processFaceLandmarks(faceLandmarksArray) {
-      if (!faceLandmarksArray || faceLandmarksArray.length === 0) {
-        app.rawFaceLens = null;
-        return;
-      }
-      const landmarks = faceLandmarksArray[0];
-      const bridge = landmarks[168];   // Nose bridge between eyes
-      const leftEye = landmarks[33];   // Left eye outer corner
-      const rightEye = landmarks[263]; // Right eye outer corner
-
-      if (!bridge || !leftEye || !rightEye) return;
-
-      const bridgeX = app.isMirrored ? (1 - bridge.x) * app.width : bridge.x * app.width;
-      const bridgeY = bridge.y * app.height;
-      const leftX = app.isMirrored ? (1 - leftEye.x) * app.width : leftEye.x * app.width;
-      const leftY = leftEye.y * app.height;
-      const rightX = app.isMirrored ? (1 - rightEye.x) * app.width : rightEye.x * app.width;
-      const rightY = rightEye.y * app.height;
-
-      const eyeDist = Math.hypot(rightX - leftX, rightY - leftY);
-      const rx = Math.max(50, eyeDist * 0.75);
-      const ry = rx * 0.64;
-      const angle = Math.atan2(rightY - leftY, rightX - leftX);
-
-      app.rawFaceLens = {
-        x: bridgeX,
-        y: bridgeY,
-        rx,
-        ry,
-        angle
-      };
+    function unlockTarget(message = "TARGET UNLOCKED") {
+      app.targetLocked = false;
+      app.canLock = app.manualTargetPlaced && app.videoReady;
+      app.lockProgress = 0;
+      app.lockedLens = null;
+      if (app.state === STATES.LOCKED || app.state === STATES.LOCKING) transitionTo(STATES.IDLE);
+      app.actionHint.textContent = message;
+      updateTargetUI();
     }
 
     /* Background Theme Song Audio Controls (Jailer 2) */
+    function getActiveBgmAudio() {
+      return app.lockBgmActive ? app.lockBgmAudio : app.bgmAudio;
+    }
+
     function startBgmMusic() {
-      if (app.bgmAudio) {
-        app.bgmAudio.volume = app.bgmMuted ? 0 : app.bgmTargetVol;
-        app.bgmAudio.play().catch(e => {
-          console.warn("BGM autoplay will resume on first click:", e);
+      const audio = getActiveBgmAudio();
+      if (audio) {
+        audio.volume = app.bgmMuted ? 0 : app.bgmTargetVol;
+        audio.play().catch(err => {
+          console.warn("BGM playback will resume on user interaction:", err);
         });
       }
       updateAudioUI();
+    }
+
+    function startLockedBgmMusic() {
+      app.lockBgmActive = true;
+      app.bgmAudio.pause();
+      app.lockBgmAudio.pause();
+      app.lockBgmAudio.currentTime = 0;
+      if (app.soundEnabled && !app.bgmMuted) {
+        app.lockBgmAudio.volume = app.bgmTargetVol;
+        app.lockBgmAudio.play().catch(err => {
+          console.warn("Lock countdown BGM could not be played:", err);
+        });
+      }
+      updateAudioUI();
+    }
+
+    function restoreStartupBgmMusic() {
+      app.lockBgmActive = false;
+      app.lockBgmAudio.pause();
+      app.lockBgmAudio.currentTime = 0;
+      startBgmMusic();
     }
 
     function setBgmVolume(targetVol) {
@@ -1972,12 +2288,10 @@
 
     function toggleBgmAudio() {
       app.bgmMuted = !app.bgmMuted;
-      if (app.bgmAudio) {
-        if (app.bgmMuted) {
-          app.bgmAudio.pause();
-        } else {
-          app.bgmAudio.play().catch(() => {});
-        }
+      const audio = getActiveBgmAudio();
+      if (audio) {
+        if (app.bgmMuted) audio.pause();
+        else startBgmMusic();
       }
       updateAudioUI();
     }
@@ -1999,90 +2313,6 @@
       }
     }
 
-    /* Target Mode Switcher */
-    function cycleTargetMode() {
-      if (app.targetMode === TARGET_MODES.REAL_SPECS) {
-        setTargetMode(TARGET_MODES.VIRTUAL_PINCH);
-      } else if (app.targetMode === TARGET_MODES.VIRTUAL_PINCH) {
-        setTargetMode(TARGET_MODES.WORN_SPECS);
-      } else {
-        setTargetMode(TARGET_MODES.REAL_SPECS);
-      }
-    }
-
-    function setTargetMode(mode) {
-      app.targetMode = mode;
-      app.steadyTime = 0;
-      app.lockProgress = 0;
-      if (app.state === STATES.LOCKING) {
-        transitionTo(STATES.IDLE);
-      }
-
-      if (mode === TARGET_MODES.REAL_SPECS) {
-        if (app.targetModeText) app.targetModeText.textContent = "SPECS";
-        if (app.targetModeIcon) app.targetModeIcon.textContent = "🎯";
-        if (app.targetModeLabelBottom) app.targetModeLabelBottom.textContent = "SPECS";
-        if (app.trackingInfo) app.trackingInfo.textContent = "ALIGN GLASSES IN SCOPE";
-      } else if (mode === TARGET_MODES.VIRTUAL_PINCH) {
-        if (app.targetModeText) app.targetModeText.textContent = "PINCH";
-        if (app.targetModeIcon) app.targetModeIcon.textContent = "✋";
-        if (app.targetModeLabelBottom) app.targetModeLabelBottom.textContent = "HAND PINCH";
-        if (app.trackingInfo) app.trackingInfo.textContent = "PINCH FINGERS AS LENS";
-      } else if (mode === TARGET_MODES.WORN_SPECS) {
-        if (app.targetModeText) app.targetModeText.textContent = "FACE";
-        if (app.targetModeIcon) app.targetModeIcon.textContent = "👤";
-        if (app.targetModeLabelBottom) app.targetModeLabelBottom.textContent = "WORN SPECS";
-        if (app.trackingInfo) app.trackingInfo.textContent = "LOOK AT CAMERA WITH GLASSES";
-      }
-    }
-
-    function updateSegmentation(timestampMs) {
-      if (!app.imageSegmenter || app.isSegmenting || !app.videoReady) return;
-      app.isSegmenting = true;
-
-      try {
-        app.imageSegmenter.segmentForVideo(app.video, timestampMs, (result) => {
-          try {
-            if (result && result.categoryMask) {
-              const mask = result.categoryMask;
-              const maskW = mask.width;
-              const maskH = mask.height;
-
-              // Ensure offscreen mask buffer matches mask dimensions
-              if (app.maskCanvas.width !== maskW || app.maskCanvas.height !== maskH) {
-                app.maskCanvas.width = maskW;
-                app.maskCanvas.height = maskH;
-                app.maskImageData = app.maskCtx.createImageData(maskW, maskH);
-              }
-
-              const maskData = mask.getAsUint8Array();
-              const imgData = app.maskImageData.data;
-
-              // Selfie Segmentation: index 1 is foreground person, 0 is background
-              for (let i = 0; i < maskData.length; i++) {
-                const isPerson = maskData[i] > 0;
-                const idx = i * 4;
-                imgData[idx] = 255;
-                imgData[idx + 1] = 255;
-                imgData[idx + 2] = 255;
-                imgData[idx + 3] = isPerson ? 255 : 0;
-              }
-
-              app.maskCtx.putImageData(app.maskImageData, 0, 0);
-              app.hasValidMask = true;
-              mask.close(); // Clean up WASM memory
-            }
-          } catch (e) {
-            console.warn("Mask parse error:", e);
-          } finally {
-            app.isSegmenting = false;
-          }
-        });
-      } catch (err) {
-        app.isSegmenting = false;
-      }
-    }
-
     /* ==========================================================================
        SECTION 4: STATE MACHINE & EFFECT LOGIC
        ========================================================================== */
@@ -2091,76 +2321,111 @@
       console.log(`Transition: ${app.state} -> ${newState}`);
       app.state = newState;
       app.stateTime = 0;
+      if (newState !== STATES.LOCKED) {
+        app.lockCountdownEndsAt = 0;
+        app.lockCountdownDisplayed = null;
+        app.lockCountdown.hidden = true;
+      }
 
       // Update UI Telemetry Badge
       app.stateLabel.textContent = newState;
-      app.statusDot.className = 'status-dot';
+      app.statusDot.className = app.videoReady ? 'status-dot connected' : 'status-dot';
+      if (newState === STATES.IDLE) app.stateLabel.textContent = app.videoReady ? "MANUAL AIM" : "CAMERA REQUIRED";
+      if (newState === STATES.LOCKED) app.stateLabel.textContent = "TARGET LOCKED";
 
       if (newState === STATES.IDLE) {
         sound.stopLockingDrone();
         sound.stopRoarAmbience();
         setBgmVolume(0.32); // Medium volume rest of the time
-        app.steadyTime = 0;
+        restoreStartupBgmMusic();
         app.lockProgress = 0;
         app.timeScale = 1.0;
         app.revealControls.classList.remove('visible');
+        app.revealControls.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('letterbox-active');
         document.body.classList.remove('blast-active');
+        app.actionOverlay.classList.remove('visible');
+        app.actionOverlay.setAttribute('aria-hidden', 'true');
+        updateTargetUI();
       }
       else if (newState === STATES.LOCKING) {
         app.statusDot.classList.add('locking');
-        sound.startLockingDrone();
+        if (app.soundEnabled) sound.startLockingDrone();
+      }
+      else if (newState === STATES.LOCKED) {
+        sound.stopLockingDrone();
+        app.statusDot.classList.add('locking');
+        startLockedBgmMusic();
+        app.lockCountdownEndsAt = performance.now() + CONFIG.LOCK_COUNTDOWN_SECONDS * 1000;
+        app.lockCountdownDisplayed = CONFIG.LOCK_COUNTDOWN_SECONDS;
+        app.lockCountdownValue.textContent = String(CONFIG.LOCK_COUNTDOWN_SECONDS);
+        app.lockCountdown.hidden = false;
+        app.actionHint.textContent = "SIMULATION STARTING IN 3 SECONDS";
+        updateTargetUI();
       }
       else if (newState === STATES.BLAST_IN_LENS) {
         app.statusDot.classList.add('blast');
+        app.actionHint.textContent = "SIMULATION IN PROGRESS";
         document.body.classList.add('blast-active');
-        setBgmVolume(1.0); // LOUD while sniper target is fixed & blasting!
+        app.actionOverlayTitle.textContent = "SYSTEM ACTIVATED";
+        app.actionOverlay.classList.add('visible');
+        app.actionOverlay.setAttribute('aria-hidden', 'false');
+        setBgmVolume(app.soundEnabled ? 0.65 : 0);
         sound.stopLockingDrone();
-        sound.playTargetLockedChime();
-        sound.playIgnition();
-
-        // Lock in current smoothed lens geometry
-        app.lockedLens = { ...app.smoothLens };
+        if (app.soundEnabled) {
+          sound.playTargetLockedChime();
+          sound.playIgnition();
+        }
 
         // Initial blinding ignition flash
-        app.flashAlpha = 1.0;
-        app.shakeIntensity = 12;
+        app.flashAlpha = app.reduceMotion ? 0.12 : 1.0;
+        app.shakeIntensity = app.reduceMotion ? 0 : 12;
 
         // Initial energy bursts
-        spawnFire(app.lockedLens.x, app.lockedLens.y, 40, 0.8, 0.7);
-        spawnSmoke(app.lockedLens.x, app.lockedLens.y, 18, 0.6);
-        spawnSparks(app.lockedLens.x, app.lockedLens.y, 50, 0.9);
-        triggerEnergyStreaks(app.lockedLens.x, app.lockedLens.y, app.lockedLens.rx, app.lockedLens.ry);
+        spawnFire(app.lockedLens.x, app.lockedLens.y, app.reduceMotion ? 8 : 40, 0.8, 0.7);
+        if (!app.reduceMotion) {
+          spawnSmoke(app.lockedLens.x, app.lockedLens.y, 18, 0.6);
+          spawnSparks(app.lockedLens.x, app.lockedLens.y, 50, 0.9);
+          triggerEnergyStreaks(app.lockedLens.x, app.lockedLens.y, app.lockedLens.rx, app.lockedLens.ry);
+        }
       }
       else if (newState === STATES.BURST) {
         app.statusDot.classList.add('blast');
-        setBgmVolume(1.0); // LOUD!
-        sound.playBurstExplosion();
+        app.actionOverlayTitle.textContent = "SIMULATION COMPLETE";
+        setBgmVolume(app.soundEnabled ? 0.65 : 0);
+        if (app.soundEnabled) sound.playBurstExplosion();
 
         // Screen-swallowing burst
-        triggerShockwave(app.lockedLens.x, app.lockedLens.y);
-        app.flashAlpha = 0.9;
-        app.shakeIntensity = 38; // violent camera shake
+        if (!app.reduceMotion) triggerShockwave(app.lockedLens.x, app.lockedLens.y);
+        app.flashAlpha = app.reduceMotion ? 0.08 : 0.9;
+        app.shakeIntensity = app.reduceMotion ? 0 : 38;
 
-        spawnFire(app.lockedLens.x, app.lockedLens.y, 140, 2.5, 2.2);
-        spawnSmoke(app.lockedLens.x, app.lockedLens.y, 50, 2.0);
-        spawnSparks(app.lockedLens.x, app.lockedLens.y, 120, 2.2);
-        spawnDebris(app.lockedLens.x, app.lockedLens.y, 45);
+        spawnFire(app.lockedLens.x, app.lockedLens.y, app.reduceMotion ? 10 : 140, 2.5, 2.2);
+        if (!app.reduceMotion) {
+          spawnSmoke(app.lockedLens.x, app.lockedLens.y, 50, 2.0);
+          spawnSparks(app.lockedLens.x, app.lockedLens.y, 120, 2.2);
+          spawnDebris(app.lockedLens.x, app.lockedLens.y, 45);
+        }
       }
       else if (newState === STATES.REVEAL) {
-        setBgmVolume(1.0); // LOUD!
-        sound.startRoarAmbience();
+        app.actionOverlayTitle.textContent = "SIMULATION COMPLETE";
+        app.actionOverlay.classList.add('visible');
+        setBgmVolume(app.soundEnabled ? 0.55 : 0);
+        if (app.soundEnabled) sound.startRoarAmbience();
         app.revealControls.classList.add('visible');
+        app.revealControls.setAttribute('aria-hidden', 'false');
         document.body.classList.add('letterbox-active');
-        app.shakeIntensity = 6; // gentle persistent seismic tremor
+        app.shakeIntensity = 0;
       }
       else if (newState === STATES.RESET) {
         sound.resetAll();
         setBgmVolume(0.32); // Return to medium volume
         app.revealControls.classList.remove('visible');
+        app.revealControls.setAttribute('aria-hidden', 'true');
+        app.actionOverlay.classList.remove('visible');
+        app.actionOverlay.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('letterbox-active');
         document.body.classList.remove('blast-active');
-        app.steadyTime = 0;
         app.lockProgress = 0;
         app.timeScale = 1.0;
         app.flashAlpha = 0;
@@ -2182,286 +2447,93 @@
     }
 
     function triggerManualBlast() {
-      if (app.state === STATES.BLAST_IN_LENS || app.state === STATES.BURST) return;
-
-      // Haptic vibration feedback for mobile devices
-      if (navigator.vibrate) {
-        try { navigator.vibrate([100, 50, 200]); } catch (e) {}
+      if (!app.targetLocked || app.state !== STATES.LOCKED || !app.lockedLens) {
+        app.actionHint.textContent = "NO LOCKED TARGET — PLACE AND LOCK A TARGET FIRST";
+        return;
       }
 
-      // If lens not detected, default to current realSpecsPos target
-      if (!app.smoothLens.detected) {
-        app.smoothLens.x = app.realSpecsPos.x || app.width * 0.5;
-        app.smoothLens.y = app.realSpecsPos.y || app.height * 0.42;
-        app.smoothLens.rx = app.realSpecsPos.rx || Math.min(135, app.width * 0.22);
-        app.smoothLens.ry = app.realSpecsPos.ry || (app.smoothLens.rx * 0.70);
-        app.smoothLens.angle = 0;
-        app.smoothLens.detected = true;
-      }
-      app.lockedLens = { ...app.smoothLens };
       transitionTo(STATES.BLAST_IN_LENS);
     }
 
     function resetApp() {
+      app.targetLocked = false;
+      app.canLock = false;
+      app.manualTargetPlaced = false;
       transitionTo(STATES.RESET);
+      updateTargetUI();
+    }
+
+    function updateLockCountdown(now) {
+      if (app.state !== STATES.LOCKED || !app.lockCountdownEndsAt) return;
+      const secondsLeft = Math.max(0, Math.ceil((app.lockCountdownEndsAt - now) / 1000));
+      if (secondsLeft !== app.lockCountdownDisplayed) {
+        app.lockCountdownDisplayed = secondsLeft;
+        app.lockCountdownValue.textContent = String(secondsLeft);
+      }
+      if (secondsLeft === 0) {
+        app.lockCountdownEndsAt = 0;
+        app.lockCountdown.hidden = true;
+        triggerManualBlast();
+      }
     }
 
     /* ==========================================================================
        SECTION 5: CANVAS RENDERING PIPELINE
        ========================================================================== */
 
-    // Draw Rounded Wayfarer Spectacle Lens Path
+    // Draw the selected target area.
     function traceLensPath(ctx, x, y, rx, ry, angle = 0) {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle);
       ctx.beginPath();
-      // Elegant squircle / wayfarer rounded spectacle profile
-      const r = ry * 0.38;
-      ctx.moveTo(-rx + r, -ry);
-      ctx.lineTo(rx - r, -ry);
-      ctx.quadraticCurveTo(rx, -ry, rx, -ry + r);
-      ctx.lineTo(rx * 0.92, ry - r * 1.3);
-      ctx.quadraticCurveTo(rx * 0.85, ry, rx * 0.85 - r, ry);
-      ctx.lineTo(-rx * 0.85 + r, ry);
-      ctx.quadraticCurveTo(-rx * 0.85, ry, -rx * 0.92, ry - r * 1.3);
-      ctx.lineTo(-rx, -ry + r);
-      ctx.quadraticCurveTo(-rx, -ry, -rx + r, -ry);
-      ctx.closePath();
+      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
       ctx.restore();
     }
 
-    // Helper to safely draw rounded rectangles with fallback
-    function safeRoundRect(ctx, x, y, w, h, r) {
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(x, y, w, h, r);
-      } else {
-        ctx.rect(x, y, w, h);
-      }
-    }
-
-    // Draw Spectacle Frame & Dark Glasses Overlay
-    function drawSpectacleFrame(ctx, x, y, rx, ry, angle = 0, isSilhouette = false) {
+    function drawScanningHUD(ctx) {
+      const x = app.width * 0.5;
+      const y = app.height * 0.5;
+      const radius = Math.min(app.width, app.height) * 0.045;
       ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-
-      const rimThickness = Math.max(8, rx * 0.12);
-
-      if (isSilhouette) {
-        // Act 3 BURST: Pitch-black spectacle silhouette with glowing rim
-        ctx.shadowColor = '#ff5500';
-        ctx.shadowBlur = 24;
-        ctx.lineWidth = rimThickness + 4;
-        ctx.strokeStyle = '#050508';
-        traceLensPath(ctx, 0, 0, rx + 2, ry + 2);
-        ctx.stroke();
-
-        // Dark Bridge and Temple
-        ctx.fillStyle = '#08080c';
-        ctx.fillRect(-rx - 25, -6, 25, 12);
-        ctx.fillRect(rx, -6, 25, 12);
-        ctx.restore();
-        return;
-      }
-
-      // ACT 1 & 2: Authentic Spectacle Frame with Bevel & Bridge
-      // 1. Dark Frame Rim
-      ctx.lineWidth = rimThickness;
-      ctx.strokeStyle = '#121217';
-      ctx.lineJoin = 'round';
-      traceLensPath(ctx, 0, 0, rx + rimThickness * 0.45, ry + rimThickness * 0.45);
-      ctx.stroke();
-
-      // 2. Beveled Metallic Edge Highlight
+      ctx.strokeStyle = 'rgba(255, 205, 145, 0.74)';
+      ctx.fillStyle = 'rgba(255, 205, 145, 0.88)';
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-      traceLensPath(ctx, 0, 0, rx + rimThickness * 0.85, ry + rimThickness * 0.85);
-      ctx.stroke();
-
-      // 3. Eyewear Nose Bridge (left or center connection)
-      ctx.fillStyle = '#181820';
       ctx.beginPath();
-      safeRoundRect(ctx, -rx - rimThickness * 1.5, -ry * 0.25, rimThickness * 1.6, ry * 0.4, 4);
-      ctx.fill();
-      ctx.strokeStyle = '#2c2d38';
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.stroke();
-
-      // 4. Outer Temple Arm Hinge with Metallic Screw
       ctx.beginPath();
-      safeRoundRect(ctx, rx + rimThickness * 0.1, -ry * 0.3, rimThickness * 1.8, ry * 0.5, 4);
-      ctx.fill();
+      ctx.moveTo(x - 12, y); ctx.lineTo(x - 4, y);
+      ctx.moveTo(x + 4, y); ctx.lineTo(x + 12, y);
+      ctx.moveTo(x, y - 12); ctx.lineTo(x, y - 4);
+      ctx.moveTo(x, y + 4); ctx.lineTo(x, y + 12);
       ctx.stroke();
-
-      // Tiny Silver Screw Accent
-      ctx.fillStyle = '#dcdde1';
-      ctx.beginPath();
-      ctx.arc(rx + rimThickness * 0.8, -ry * 0.05, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 5. Subtle Glass Reflection Glare (Across the lens)
-      ctx.save();
-      traceLensPath(ctx, 0, 0, rx, ry);
-      ctx.clip();
-      const glare = ctx.createLinearGradient(-rx, -ry, rx, ry);
-      glare.addColorStop(0, 'rgba(255, 255, 255, 0.16)');
-      glare.addColorStop(0.25, 'rgba(255, 255, 255, 0.03)');
-      glare.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
-      glare.addColorStop(0.85, 'rgba(255, 255, 255, 0.08)');
-      ctx.fillStyle = glare;
-      ctx.fill();
-      ctx.restore();
-
-      ctx.restore();
-    }
-
-    // Draw Futuristic Targeting HUD Brackets & Progress Ring
-    function drawTargetingHUD(ctx, x, y, rx, ry, progress, isLocked) {
-      ctx.save();
-      const size = Math.max(rx, ry);
-      const ringRadius = size + 20;
-
-      // Color scheme: Amber when tracking, High-intensity Red when Locked
-      const primaryColor = isLocked ? '#ff2a4b' : (progress > 0 ? '#ffbe3b' : 'rgba(255, 180, 50, 0.45)');
-      const shadowGlow = isLocked ? 'rgba(255, 42, 75, 0.8)' : 'rgba(255, 190, 59, 0.5)';
-
-      ctx.shadowColor = shadowGlow;
-      ctx.shadowBlur = isLocked ? 18 : 8;
-
-      // 1. Inward Cinching Corner Brackets
-      const bracketPadding = 18 - progress * 8;
-      const bW = rx + bracketPadding;
-      const bH = ry + bracketPadding;
-      const arm = 16 + progress * 8;
-
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = primaryColor;
-
-      // Top-Left
-      ctx.beginPath();
-      ctx.moveTo(x - bW, y - bH + arm);
-      ctx.lineTo(x - bW, y - bH);
-      ctx.lineTo(x - bW + arm, y - bH);
-      ctx.stroke();
-
-      // Top-Right
-      ctx.beginPath();
-      ctx.moveTo(x + bW - arm, y - bH);
-      ctx.lineTo(x + bW, y - bH);
-      ctx.lineTo(x + bW, y - bH + arm);
-      ctx.stroke();
-
-      // Bottom-Left
-      ctx.beginPath();
-      ctx.moveTo(x - bW, y + bH - arm);
-      ctx.lineTo(x - bW, y + bH);
-      ctx.lineTo(x - bW + arm, y + bH);
-      ctx.stroke();
-
-      // Bottom-Right
-      ctx.beginPath();
-      ctx.moveTo(x + bW - arm, y + bH);
-      ctx.lineTo(x + bW, y + bH);
-      ctx.lineTo(x + bW, y + bH - arm);
-      ctx.stroke();
-
-      // 2. Circular Progress Gauge
-      if (progress > 0) {
-        // Background track
-        ctx.beginPath();
-        ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.stroke();
-
-        // Active fill arc
-        ctx.beginPath();
-        ctx.arc(x, y, ringRadius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = primaryColor;
-        ctx.stroke();
-      }
-
-      // 3. Monospace Telemetry Readout
-      ctx.font = '11px "JetBrains Mono", Consolas, monospace';
-      ctx.fillStyle = primaryColor;
+      ctx.font = '10px "Open Sans", sans-serif';
       ctx.textAlign = 'center';
-
-      if (isLocked) {
-        ctx.fillText('CRITICAL // TARGET LOCKED', x, y - bH - 14);
-      } else if (progress > 0) {
-        const pct = Math.round(progress * 100);
-        ctx.fillText(`LOCKING SPECTRAL CORE: ${pct}%`, x, y - bH - 14);
-      } else {
-        ctx.fillText('OPTIC FOCUS // HOLD STEADY', x, y - bH - 14);
-      }
-
+      ctx.fillText('TAP TO PLACE', x, y + radius + 22);
       ctx.restore();
     }
 
-    // Draw Military-Grade Cybernetic Sniper Reticle for Spectacles Target
     function drawSniperReticle(ctx, x, y, rx, ry, progress, isLocked) {
       ctx.save();
-      const scopeRadius = Math.max(rx, ry) * 1.35;
-      const primaryColor = isLocked ? '#ff2a4b' : (progress > 0 ? '#ffbe3b' : '#ff9500');
-      const glowColor = isLocked ? 'rgba(255, 42, 75, 0.95)' : (progress > 0 ? 'rgba(255, 190, 59, 0.75)' : 'rgba(255, 149, 0, 0.45)');
-
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = isLocked ? 24 : (progress > 0 ? 16 : 8);
+      const scopeRadius = Math.max(rx, ry) * 1.2;
+      const primaryColor = isLocked ? '#ff2a4b' : '#ffb347';
+      ctx.shadowColor = isLocked ? 'rgba(255, 42, 75, 0.9)' : 'rgba(255, 170, 65, 0.65)';
+      ctx.shadowBlur = isLocked ? 20 : 10;
       ctx.strokeStyle = primaryColor;
       ctx.fillStyle = primaryColor;
-
-      // 1. Dual Real Spectacles Outline Guide (Left and Right Lens Silhouettes)
-      const halfSpan = rx * 0.58;
-      const lensR = rx * 0.46;
-      const lensH = ry * 0.70;
-
-      ctx.lineWidth = isLocked ? 2.5 : 1.6;
-      ctx.setLineDash(isLocked ? [] : [6, 4]);
-
-      // Left spectacle lens silhouette
-      ctx.beginPath();
-      ctx.ellipse(x - halfSpan, y, lensR, lensH, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Right spectacle lens silhouette
-      ctx.beginPath();
-      ctx.ellipse(x + halfSpan, y, lensR, lensH, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Spectacle Nose Bridge
-      ctx.beginPath();
-      ctx.moveTo(x - halfSpan + lensR, y);
-      ctx.lineTo(x + halfSpan - lensR, y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // 2. High-Tech Rotating Outer Scope Ring
-      const rot = performance.now() * 0.0008;
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = isLocked ? 2.2 : 1.5;
+      ctx.setLineDash(isLocked ? [] : [5, 5]);
       ctx.beginPath();
       ctx.arc(x, y, scopeRadius, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.setLineDash([]);
 
-      // Segmented radar arc rings
-      const numSegments = 4;
-      for (let i = 0; i < numSegments; i++) {
-        const segAngle = rot + (i * Math.PI * 2) / numSegments;
-        ctx.beginPath();
-        ctx.arc(x, y, scopeRadius + 8, segAngle, segAngle + 0.35);
-        ctx.lineWidth = 2.2;
-        ctx.stroke();
-      }
-
-      // Cardinal Notches (0, 90, 180, 270 degrees)
-      const notchLen = 12;
-      ctx.lineWidth = 2.2;
-      ctx.beginPath(); ctx.moveTo(x, y - scopeRadius - 6); ctx.lineTo(x, y - scopeRadius + notchLen); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x, y + scopeRadius + 6); ctx.lineTo(x, y + scopeRadius - notchLen); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x - scopeRadius - 6, y); ctx.lineTo(x - scopeRadius + notchLen, y); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + scopeRadius + 6, y); ctx.lineTo(x + scopeRadius - notchLen, y); ctx.stroke();
-
-      // 3. Precision Center Crosshair
+      const rotation = app.reduceMotion ? 0 : performance.now() * 0.0005;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, scopeRadius + 8, rotation, rotation + Math.PI * 0.55);
+      ctx.stroke();
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(x - 22, y); ctx.lineTo(x - 6, y);
@@ -2473,41 +2545,17 @@
       ctx.arc(x, y, 2.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // 4. Corner Laser Locking Brackets
-      const bPad = 20 - progress * 10;
-      const bW = rx + bPad;
-      const bH = ry + bPad;
-      const arm = 14 + progress * 10;
-
-      ctx.lineWidth = isLocked ? 3.5 : 2.2;
-      // Top-Left
-      ctx.beginPath(); ctx.moveTo(x - bW, y - bH + arm); ctx.lineTo(x - bW, y - bH); ctx.lineTo(x - bW + arm, y - bH); ctx.stroke();
-      // Top-Right
-      ctx.beginPath(); ctx.moveTo(x + bW - arm, y - bH); ctx.lineTo(x + bW, y - bH); ctx.lineTo(x + bW, y - bH + arm); ctx.stroke();
-      // Bottom-Left
-      ctx.beginPath(); ctx.moveTo(x - bW, y + bH - arm); ctx.lineTo(x - bW, y + bH); ctx.lineTo(x - bW + arm, y + bH); ctx.stroke();
-      // Bottom-Right
-      ctx.beginPath(); ctx.moveTo(x + bW - arm, y + bH); ctx.lineTo(x + bW, y + bH); ctx.lineTo(x + bW, y + bH - arm); ctx.stroke();
-
-      // 5. Progress Arc Gauge when locking
       if (progress > 0) {
         ctx.beginPath();
         ctx.arc(x, y, scopeRadius + 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.strokeStyle = primaryColor;
         ctx.stroke();
       }
 
-      // 6. Minimalist Sleek Status Badge (Clean, NO text overlaps!)
-      ctx.font = 'bold 10px "JetBrains Mono", Consolas, monospace';
+      ctx.font = '600 10px "Open Sans", sans-serif';
       ctx.textAlign = 'center';
-      if (isLocked) {
-        ctx.fillStyle = '#ff2a4b';
-        ctx.fillText('TARGET LOCKED // READY TO DETONATE', x, y - bH - 12);
-      } else if (progress > 0) {
-        ctx.fillStyle = '#ffbe3b';
-        ctx.fillText(`LOCKING SPECS: ${Math.round(progress * 100)}%`, x, y - bH - 12);
-      }
+      ctx.fillText(isLocked ? 'TARGET LOCKED' : 'MANUAL TARGET', x, y - scopeRadius - 14);
 
       ctx.restore();
     }
@@ -2613,11 +2661,12 @@
       const dt = Math.min(0.1, (currentTime - app.lastFrameTime) / 1000);
       app.lastFrameTime = currentTime;
       app.stateTime += dt;
-
-      // Update FPS counter every ~0.5s
-      if (Math.random() < 0.05) {
-        app.fps = Math.round(1 / (dt || 0.016));
-        app.fpsCounter.textContent = `${app.fps} FPS`;
+      app.renderFpsFrames++;
+      if (currentTime - app.renderFpsLastAt >= 1000) {
+        app.renderFps = app.renderFpsFrames * 1000 / (currentTime - app.renderFpsLastAt);
+        app.renderFpsLabel.textContent = app.videoReady ? `${Math.round(app.renderFps)} FPS` : "--";
+        app.renderFpsFrames = 0;
+        app.renderFpsLastAt = currentTime;
       }
 
       if (!app.videoReady) return;
@@ -2626,166 +2675,26 @@
       const width = app.width;
       const height = app.height;
 
-      // 0. Update BGM Theme Song Volume smoothly
-      if (app.bgmAudio && !app.bgmMuted && !app.bgmAudio.paused) {
+      // 0. Update the active BGM volume smoothly.
+      const activeBgmAudio = getActiveBgmAudio();
+      if (activeBgmAudio && !app.bgmMuted && !activeBgmAudio.paused) {
         app.bgmCurrentVol += (app.bgmTargetVol - app.bgmCurrentVol) * 0.08;
-        app.bgmAudio.volume = Math.max(0, Math.min(1, app.bgmCurrentVol));
+        activeBgmAudio.volume = Math.max(0, Math.min(1, app.bgmCurrentVol));
       }
 
-      // 1. Vision Tasks Inference
-      if (app.video.currentTime !== app.lastVideoTime) {
-        app.lastVideoTime = app.video.currentTime;
-        const nowMs = performance.now();
-
-        // Hand tracking for Real Specs / Pinch
-        if (app.handLandmarker && (app.state === STATES.IDLE || app.state === STATES.LOCKING)) {
-          const results = app.handLandmarker.detectForVideo(app.video, nowMs);
-          if (results && results.landmarks) {
-            processHandLandmarks(results.landmarks);
-          }
-        }
-
-        // Face tracking for Worn Specs mode
-        if (app.faceLandmarker && app.targetMode === TARGET_MODES.WORN_SPECS && (app.state === STATES.IDLE || app.state === STATES.LOCKING)) {
-          const faceResults = app.faceLandmarker.detectForVideo(app.video, nowMs);
-          if (faceResults && faceResults.faceLandmarks) {
-            processFaceLandmarks(faceResults.faceLandmarks);
-          }
-        }
-
-        // Selfie segmentation inference (pre-warm in Burst, actively used in Reveal)
-        if (app.imageSegmenter && (app.state === STATES.BURST || app.state === STATES.REVEAL)) {
-          updateSegmentation(nowMs);
-        }
-      }
-
-      // 2. Select & Smooth Coordinates based on Active Target Mode
-      let targetX = app.width * 0.5;
-      let targetY = app.height * 0.44;
-      let targetRx = 135;
-      let targetRy = 90;
-      let targetAngle = 0;
-      let hasTarget = false;
-
-      if (app.targetMode === TARGET_MODES.REAL_SPECS) {
-        if (app.rawLens) {
-          // Hand holding real spectacles in front of camera
-          targetX = app.rawLens.x;
-          targetY = app.rawLens.y;
-          targetRx = app.rawLens.rx;
-          targetRy = app.rawLens.ry;
-          targetAngle = app.rawLens.angle;
-          hasTarget = true;
-          if (app.trackingInfo) app.trackingInfo.textContent = `REAL SPECS IN SIGHTS`;
-        } else {
-          // Real spectacles reticle standby: waiting for user placement or manual blast
-          targetX = app.realSpecsPos.x;
-          targetY = app.realSpecsPos.y;
-          targetRx = app.realSpecsPos.rx;
-          targetRy = app.realSpecsPos.ry;
-          hasTarget = false;
-          if (app.trackingInfo) app.trackingInfo.textContent = "ALIGN GLASSES // TAP IGNITE BLAST";
-        }
-      } else if (app.targetMode === TARGET_MODES.WORN_SPECS) {
-        if (app.rawFaceLens) {
-          targetX = app.rawFaceLens.x;
-          targetY = app.rawFaceLens.y;
-          targetRx = app.rawFaceLens.rx;
-          targetRy = app.rawFaceLens.ry;
-          targetAngle = app.rawFaceLens.angle;
-          hasTarget = true;
-          if (app.trackingInfo) app.trackingInfo.textContent = "WORN SPECS LOCKED";
-        } else {
-          hasTarget = false;
-          if (app.state === STATES.IDLE || app.state === STATES.LOCKING) {
-            if (app.trackingInfo) app.trackingInfo.textContent = "LOOK AT CAMERA WITH GLASSES";
-          }
-        }
-      } else {
-        // VIRTUAL_PINCH mode
-        if (app.rawLens) {
-          targetX = app.rawLens.x;
-          targetY = app.rawLens.y;
-          targetRx = app.rawLens.rx;
-          targetRy = app.rawLens.ry;
-          targetAngle = app.rawLens.angle;
-          hasTarget = true;
-          if (app.trackingInfo) app.trackingInfo.textContent = `PINCH: (${Math.round(targetX)}, ${Math.round(targetY)})`;
-        } else {
-          hasTarget = false;
-          if (app.state === STATES.IDLE || app.state === STATES.LOCKING) {
-            if (app.trackingInfo) app.trackingInfo.textContent = "PINCH FINGERS AS LENS";
-          }
-        }
-      }
-
-      app.smoothLens.detected = hasTarget;
-      if (hasTarget) {
-        // Framerate-independent EMA: same feel at 30fps or 120fps
-        const posAlpha  = emaAlpha(CONFIG.LENS_SMOOTH_HALFLIFE, dt);
-        const sizeAlpha = emaAlpha(CONFIG.LENS_SIZE_HALFLIFE, dt);
-        app.smoothLens.x  += (targetX  - app.smoothLens.x)  * posAlpha;
-        app.smoothLens.y  += (targetY  - app.smoothLens.y)  * posAlpha;
-        app.smoothLens.rx += (targetRx - app.smoothLens.rx) * sizeAlpha;
-        app.smoothLens.ry += (targetRy - app.smoothLens.ry) * sizeAlpha;
-        // Shortest-path angle interpolation: prevents 360° spin wrap-around
-        app.smoothLens.angle += angleDiff(targetAngle, app.smoothLens.angle) * posAlpha;
-      }
-
-      // Smooth sniper reticle position (tap repositioned, lerped separately)
-      if (app.targetMode === TARGET_MODES.REAL_SPECS) {
-        const retAlpha = emaAlpha(CONFIG.RETICLE_SMOOTH_HALFLIFE, dt);
-        app.smoothReticle.x  += (app.realSpecsPos.x  - app.smoothReticle.x)  * retAlpha;
-        app.smoothReticle.y  += (app.realSpecsPos.y  - app.smoothReticle.y)  * retAlpha;
-        app.smoothReticle.rx += (app.realSpecsPos.rx - app.smoothReticle.rx) * retAlpha;
-        app.smoothReticle.ry += (app.realSpecsPos.ry - app.smoothReticle.ry) * retAlpha;
-      }
-
-      // 3. Steady Detection & Act 1 Lock Logic
-      if (app.state === STATES.IDLE || app.state === STATES.LOCKING) {
-        if (app.smoothLens.detected) {
-          const delta = Math.hypot(
-            app.smoothLens.x - app.prevLensPos.x,
-            app.smoothLens.y - app.prevLensPos.y
-          ) + Math.abs(app.smoothLens.rx - app.prevLensPos.rx);
-
-          app.prevLensPos.x = app.smoothLens.x;
-          app.prevLensPos.y = app.smoothLens.y;
-          app.prevLensPos.rx = app.smoothLens.rx;
-
-          if (delta < CONFIG.STEADY_MAX_DELTA) {
-            // Held steady: increment lock progress
-            app.steadyTime += dt;
-            app.lockProgress = Math.min(1.0, app.steadyTime / CONFIG.LOCK_DURATION_SEC);
-
-            if (app.state === STATES.IDLE) {
-              transitionTo(STATES.LOCKING);
-            }
-            sound.updateLockingDrone(app.lockProgress);
-            setBgmVolume(0.32 + app.lockProgress * 0.68); // Song builds up to LOUD as sniper locks!
-
-            if (app.steadyTime >= CONFIG.LOCK_DURATION_SEC) {
-              transitionTo(STATES.BLAST_IN_LENS); // Triggers LOUD (1.0) volume!
-            }
-          } else {
-            // Moved too quickly: decay progress
-            app.steadyTime = Math.max(0, app.steadyTime - dt * 2.2);
-            app.lockProgress = app.steadyTime / CONFIG.LOCK_DURATION_SEC;
-            sound.updateLockingDrone(app.lockProgress);
-            setBgmVolume(0.32 + app.lockProgress * 0.68);
-
-            if (app.lockProgress <= 0.05 && app.state === STATES.LOCKING) {
-              transitionTo(STATES.IDLE);
-            }
-          }
-        } else {
-          // Target lost
-          if (app.state === STATES.LOCKING) {
-            app.steadyTime = Math.max(0, app.steadyTime - dt * 3.0);
-            app.lockProgress = app.steadyTime / CONFIG.LOCK_DURATION_SEC;
-            if (app.lockProgress <= 0.05) transitionTo(STATES.IDLE);
-          }
-        }
+      const nowMs = performance.now();
+      updateLockCountdown(nowMs);
+      const targetRadius = Math.min(width, height) * 0.11;
+      const smoothAlpha = emaAlpha(CONFIG.RETICLE_SMOOTH_HALFLIFE, dt);
+      app.smoothLens.x += (app.manualTarget.x - app.smoothLens.x) * smoothAlpha;
+      app.smoothLens.y += (app.manualTarget.y - app.smoothLens.y) * smoothAlpha;
+      app.smoothLens.rx += (targetRadius - app.smoothLens.rx) * smoothAlpha;
+      app.smoothLens.ry += (targetRadius - app.smoothLens.ry) * smoothAlpha;
+      app.smoothLens.detected = app.manualTargetPlaced;
+      if (app.trackingInfo) {
+        app.trackingInfo.textContent = app.manualTargetPlaced
+          ? "MANUAL TARGET SELECTED"
+          : "TAP PREVIEW TO PLACE RETICLE";
       }
 
       // 4. Update State Timers & State Machine Progression
@@ -2794,34 +2703,37 @@
         app.timeScale = Math.min(1.0, 0.3 + 0.7 * (app.stateTime / CONFIG.IN_LENS_BLAST_SEC));
 
         // Continuously feed fire inside the lens
-        spawnFire(app.lockedLens.x, app.lockedLens.y, 4, 1.0, 0.8);
-        spawnSmoke(app.lockedLens.x, app.lockedLens.y, 2, 0.8);
-        if (Math.random() < 0.3) {
-          spawnSparks(app.lockedLens.x, app.lockedLens.y, 8, 1.2);
+        if (!app.reduceMotion) {
+          spawnFire(app.lockedLens.x, app.lockedLens.y, 4, 1.0, 0.8);
+          spawnSmoke(app.lockedLens.x, app.lockedLens.y, 2, 0.8);
+          if (Math.random() < 0.3) spawnSparks(app.lockedLens.x, app.lockedLens.y, 8, 1.2);
         }
 
-        if (app.stateTime >= CONFIG.IN_LENS_BLAST_SEC) {
+        if (app.stateTime >= (app.reduceMotion ? 0.18 : CONFIG.IN_LENS_BLAST_SEC)) {
           transitionTo(STATES.BURST);
         }
       }
       else if (app.state === STATES.BURST) {
         // Overflow explosion scaling across the screen
-        spawnFire(app.lockedLens.x, app.lockedLens.y, 8, 2.2, 2.0);
-        spawnSmoke(app.lockedLens.x, app.lockedLens.y, 4, 1.8);
+        if (!app.reduceMotion) {
+          spawnFire(app.lockedLens.x, app.lockedLens.y, 8, 2.2, 2.0);
+          spawnSmoke(app.lockedLens.x, app.lockedLens.y, 4, 1.8);
+        }
 
-        if (app.stateTime >= CONFIG.BURST_EXPAND_SEC) {
+        if (app.stateTime >= (app.reduceMotion ? 0.2 : CONFIG.BURST_EXPAND_SEC)) {
           transitionTo(STATES.REVEAL);
         }
       }
       else if (app.state === STATES.REVEAL) {
         // Looping inferno in the background behind user
-        if (Math.random() < 0.8) {
+        if (!app.reduceMotion && Math.random() < 0.8) {
           const bgX = width * 0.15 + Math.random() * width * 0.7;
           const bgY = height * 0.75 + Math.random() * height * 0.25;
           spawnFire(bgX, bgY, 3, 1.2, 1.6);
           spawnSmoke(bgX, bgY, 2, 1.5);
           if (Math.random() < 0.25) spawnSparks(bgX, bgY, 4, 1.0);
         }
+        if (app.stateTime >= 2.4) resetApp();
       }
 
       updateParticles(dt);
@@ -2837,104 +2749,14 @@
         ctx.translate(app.shakeX, app.shakeY);
       }
 
-      // ACT 4: REVEAL RENDERING (Person in foreground, Explosion BEHIND person)
-      if (app.state === STATES.REVEAL) {
-        // Layer A: Background Raging Inferno
-        // Fiery radial background glow
-        const fireBackdrop = ctx.createRadialGradient(
-          width * 0.5, height * 0.7, 50,
-          width * 0.5, height * 0.5, width * 0.75
-        );
-        fireBackdrop.addColorStop(0, '#ff4500');
-        fireBackdrop.addColorStop(0.35, '#c72200');
-        fireBackdrop.addColorStop(0.7, '#3d0800');
-        fireBackdrop.addColorStop(1, '#08080c');
-        ctx.fillStyle = fireBackdrop;
-        ctx.fillRect(0, 0, width, height);
-
-        // Render Background Fire Particles & Smoke
-        drawParticles(ctx);
-
-        // Layer B: Foreground Action Hero Cutout
-        if (app.hasValidMask) {
-          // Prepare Person Cutout on offscreen personCanvas
-          app.personCtx.save();
-          app.personCtx.clearRect(0, 0, width, height);
-
-          // 1. Draw Webcam Video (mirrored for selfie, standard for rear)
-          app.personCtx.save();
-          if (app.isMirrored) {
-            app.personCtx.scale(-1, 1);
-            app.personCtx.drawImage(app.video, -width, 0, width, height);
-          } else {
-            app.personCtx.drawImage(app.video, 0, 0, width, height);
-          }
-          app.personCtx.restore();
-
-          // 2. Composite with Segmentation Mask
-          app.personCtx.save();
-          app.personCtx.globalCompositeOperation = 'destination-in';
-          if (app.isMirrored) {
-            app.personCtx.scale(-1, 1);
-            app.personCtx.drawImage(app.maskCanvas, -width, 0, width, height);
-          } else {
-            app.personCtx.drawImage(app.maskCanvas, 0, 0, width, height);
-          }
-          app.personCtx.restore();
-
-          app.personCtx.restore();
-
-          // 3. Draw Rim Light / Glow behind the person
-          ctx.save();
-          ctx.shadowColor = '#ff7700';
-          ctx.shadowBlur = 32;
-          ctx.drawImage(app.personCanvas, 0, 0, width, height);
-          ctx.restore();
-
-          // 4. Draw Crisp Person with Warm Action-Hero Grading
-          ctx.save();
-          ctx.filter = 'brightness(1.08) saturate(1.25) contrast(1.06)';
-          ctx.drawImage(app.personCanvas, 0, 0, width, height);
-          ctx.restore();
-        } else {
-          // Fallback if mask is still computing: Draw warm-graded video clipped to center portrait
-          ctx.save();
-          ctx.beginPath();
-          ctx.ellipse(width * 0.5, height * 0.58, width * 0.28, height * 0.46, 0, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.filter = 'brightness(1.08) saturate(1.25) contrast(1.06)';
-          if (app.isMirrored) {
-            ctx.scale(-1, 1);
-            ctx.drawImage(app.video, -width, 0, width, height);
-          } else {
-            ctx.drawImage(app.video, 0, 0, width, height);
-          }
-          ctx.restore();
-        }
-
-        // Layer C: Atmospheric Embers floating in front of the hero
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < 15; i++) {
-          const spark = app.sparkPool[i];
-          if (spark.active) {
-            ctx.fillStyle = '#ffcc00';
-            ctx.beginPath();
-            ctx.arc(spark.x, spark.y, 2, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        ctx.restore();
-      }
-      else {
-        // ACT 1, 2, 3 RENDERING
-        const currentLens = (app.state === STATES.BLAST_IN_LENS || app.state === STATES.BURST)
-          ? app.lockedLens
-          : app.smoothLens;
+      // ACT 1, 2, 3 RENDERING
+      const currentLens = (app.state === STATES.BLAST_IN_LENS || app.state === STATES.BURST)
+        ? app.lockedLens
+        : app.smoothLens;
 
         // 1. Draw Outside Lens: Blurred, Brightness 0.7, Desaturated Webcam
         ctx.save();
-        ctx.filter = 'blur(8px) brightness(0.7) grayscale(0.85)';
+        ctx.filter = 'none';
         if (app.isMirrored) {
           ctx.scale(-1, 1);
           ctx.drawImage(app.video, -width, 0, width, height);
@@ -2950,13 +2772,13 @@
           width * 0.5, height * 0.5, Math.max(width, height) * 0.75
         );
         vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        vig.addColorStop(0.65, 'rgba(0, 0, 0, 0.45)');
-        vig.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+        vig.addColorStop(0.65, 'rgba(0, 0, 0, 0)');
+        vig.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = vig;
         ctx.fillRect(0, 0, width, height);
         ctx.restore();
 
-        // 2. Draw Inside Lens (Clipped to Spectacle Oval)
+        // 2. Draw the selected target area.
         if (currentLens && currentLens.detected) {
           ctx.save();
           traceLensPath(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, currentLens.angle);
@@ -2964,7 +2786,7 @@
 
           // Sharp, warm-graded video frame inside the glass
           ctx.save();
-          ctx.filter = 'brightness(1.12) saturate(1.25) sepia(0.2) contrast(1.08)';
+          ctx.filter = 'none';
           if (app.isMirrored) {
             ctx.scale(-1, 1);
             ctx.drawImage(app.video, -width, 0, width, height);
@@ -2986,26 +2808,14 @@
           drawParticles(ctx, false);
         }
 
-        // 4. Draw Spectacle Frame / Real Specs Sniper Scope & Targeting HUD Overlay
-        // Uses smoothReticle for REAL_SPECS mode so tap reposition animates smoothly
-        if (app.state === STATES.IDLE || app.state === STATES.LOCKING) {
-          if (app.targetMode === TARGET_MODES.REAL_SPECS) {
-            const rx = (currentLens && currentLens.detected) ? currentLens.rx : app.smoothReticle.rx;
-            const ry = (currentLens && currentLens.detected) ? currentLens.ry : app.smoothReticle.ry;
-            const px = (currentLens && currentLens.detected) ? currentLens.x : app.smoothReticle.x;
-            const py = (currentLens && currentLens.detected) ? currentLens.y : app.smoothReticle.y;
-            drawSniperReticle(ctx, px, py, rx, ry, app.lockProgress, app.state === STATES.LOCKING && app.lockProgress >= 0.99);
-          } else if (currentLens && currentLens.detected) {
-            drawSpectacleFrame(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, currentLens.angle, false);
-            drawTargetingHUD(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, app.lockProgress, app.state === STATES.LOCKING && app.lockProgress >= 0.99);
-          }
+        // 4. Draw the manual targeting reticle.
+        if (app.state === STATES.IDLE || app.state === STATES.LOCKING || app.state === STATES.LOCKED) {
+          if (currentLens && currentLens.detected) {
+            drawSniperReticle(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, app.lockProgress, app.targetLocked);
+          } else drawScanningHUD(ctx);
         }
         else if (app.state === STATES.BLAST_IN_LENS) {
-          if (app.targetMode === TARGET_MODES.REAL_SPECS) {
-            drawSniperReticle(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, 1.0, true);
-          } else {
-            drawSpectacleFrame(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, currentLens.angle, false);
-          }
+          drawSniperReticle(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, 1.0, true);
         }
         else if (app.state === STATES.BURST) {
           // Fiery Sonic Shockwave Ring Expanding Across Screen
@@ -3032,11 +2842,8 @@
           }
           ctx.restore();
 
-          // Spectacle frame stays on top as a dark silhouette overlay!
-          drawSpectacleFrame(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, currentLens.angle, true);
+          drawSniperReticle(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, 1.0, true);
         }
-      }
-
       // Blinding White Screen Flash Overlay
       if (app.flashAlpha > 0) {
         ctx.save();
@@ -3056,6 +2863,7 @@
       app.startModal.classList.add('hidden');
       app.errorMessage.textContent = msg;
       app.errorModal.style.display = 'flex';
+      app.statusDot.className = 'status-dot error';
     }
 
     function toggleFullscreen() {
@@ -3068,6 +2876,7 @@
 
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
+      if (e.target instanceof Element && e.target.closest('button, input, textarea, select, [contenteditable="true"]')) return;
       if (e.code === 'Space') {
         e.preventDefault();
         sound.resume();
@@ -3082,10 +2891,6 @@
         e.preventDefault();
         toggleFullscreen();
       }
-      else if (e.code === 'KeyT') {
-        e.preventDefault();
-        cycleTargetMode();
-      }
       else if (e.code === 'KeyC') {
         e.preventDefault();
         switchCamera();
@@ -3096,66 +2901,122 @@
       }
     });
 
-    // Button Listeners
-    document.getElementById('btn-start').addEventListener('click', async () => {
-      sound.init();
-      sound.resume();
-      await initWebcam();
-      await initVisionTasks();
+    app.canvas.addEventListener('pointerdown', event => {
+      if (!app.videoReady || app.targetLocked
+        || ![STATES.IDLE, STATES.LOCKING].includes(app.state)) return;
+      const bounds = app.canvas.getBoundingClientRect();
+      const scale = getComputedStyle(app.canvas).objectFit === 'contain'
+        ? Math.min(bounds.width / app.width, bounds.height / app.height)
+        : Math.max(bounds.width / app.width, bounds.height / app.height);
+      const offsetX = (bounds.width - app.width * scale) / 2;
+      const offsetY = (bounds.height - app.height * scale) / 2;
+      const x = (event.clientX - bounds.left - offsetX) / scale;
+      const y = (event.clientY - bounds.top - offsetY) / scale;
+      if (x < 0 || x > app.width || y < 0 || y > app.height) return;
+      if (app.state === STATES.LOCKING) transitionTo(STATES.IDLE);
+      app.manualTarget.x = x;
+      app.manualTarget.y = y;
+      app.smoothLens.x = x;
+      app.smoothLens.y = y;
+      app.smoothLens.detected = true;
+      app.manualTargetPlaced = true;
+      app.canLock = true;
+      app.statusVision.textContent = "MANUAL AIM";
+      updateTargetUI();
     });
 
-    // Camera Switch Buttons (Selfie ⇄ Rear Camera)
+    // Button Listeners
+    document.getElementById('btn-start').addEventListener('click', async () => {
+      app.loadingIndicator.style.display = 'block';
+      app.loadingText.textContent = "STARTING CAMERA...";
+      try {
+        sound.init();
+        sound.resume();
+      } catch (err) {
+        console.warn("Audio is unavailable; continuing without sound:", err);
+        app.soundEnabled = false;
+      }
+      await initWebcam();
+    });
+
+    app.frontCameraButton.addEventListener('click', () => switchCamera('user'));
+    app.rearCameraButton.addEventListener('click', () => switchCamera('environment'));
+
     const btnCameraSwitch = document.getElementById('btn-camera-switch');
-    if (btnCameraSwitch) btnCameraSwitch.addEventListener('click', switchCamera);
+    if (btnCameraSwitch) btnCameraSwitch.addEventListener('click', () => switchCamera());
 
     const btnCameraSwitchBottom = document.getElementById('btn-camera-switch-bottom');
-    if (btnCameraSwitchBottom) btnCameraSwitchBottom.addEventListener('click', switchCamera);
-
-    // Target Mode & Audio Toggle Buttons
-    const btnTargetModeTop = document.getElementById('btn-target-mode');
-    if (btnTargetModeTop) btnTargetModeTop.addEventListener('click', cycleTargetMode);
-
-    const btnTargetModeBottom = document.getElementById('btn-target-mode-bottom');
-    if (btnTargetModeBottom) btnTargetModeBottom.addEventListener('click', cycleTargetMode);
+    if (btnCameraSwitchBottom) btnCameraSwitchBottom.addEventListener('click', () => switchCamera());
 
     const btnAudioToggle = document.getElementById('btn-audio-toggle');
     if (btnAudioToggle) btnAudioToggle.addEventListener('click', toggleBgmAudio);
 
-    // Mobile Touch & Screen Tap (Reposition Sniper Reticle / Instant Detonate)
-    app.canvas.addEventListener('pointerdown', (e) => {
+    app.lockButton.addEventListener('click', () => {
+      if (app.targetLocked) unlockTarget();
+      else lockTarget();
+    });
+
+    app.blastButton.addEventListener('click', () => {
       sound.resume();
       startBgmMusic();
-      const rect = app.canvas.getBoundingClientRect();
-      const scaleX = app.width / rect.width;
-      const scaleY = app.height / rect.height;
-      const tapX = (e.clientX - rect.left) * scaleX;
-      const tapY = (e.clientY - rect.top) * scaleY;
+      triggerManualBlast();
+    });
+    document.getElementById('btn-cancel-action').addEventListener('click', resetApp);
 
-      // In REAL_SPECS mode, tap repositions the sniper scope onto user's real glasses
-      if (app.targetMode === TARGET_MODES.REAL_SPECS) {
-        app.realSpecsPos.x = tapX;
-        app.realSpecsPos.y = tapY;
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      app.settingsModal.setAttribute('aria-hidden', 'false');
+      document.getElementById('btn-close-settings').focus();
+    });
+    document.getElementById('btn-close-settings').addEventListener('click', () => {
+      app.settingsModal.setAttribute('aria-hidden', 'true');
+      document.getElementById('btn-settings').focus();
+    });
+    app.settingsModal.addEventListener('click', event => {
+      if (event.target === app.settingsModal) {
+        app.settingsModal.setAttribute('aria-hidden', 'true');
+        document.getElementById('btn-settings').focus();
       }
+    });
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && app.settingsModal.getAttribute('aria-hidden') === 'false') {
+        app.settingsModal.setAttribute('aria-hidden', 'true');
+        document.getElementById('btn-settings').focus();
+      }
+    });
 
-      if (app.state === STATES.IDLE || app.state === STATES.LOCKING) {
-        if (!app.smoothLens.detected) {
-          app.smoothLens.x = tapX;
-          app.smoothLens.y = tapY;
-          app.smoothLens.rx = Math.min(130, app.width * 0.22);
-          app.smoothLens.ry = app.smoothLens.rx * 0.75;
-          app.smoothLens.angle = 0;
-          app.smoothLens.detected = true;
-        }
-        triggerManualBlast();
+    app.soundToggle.addEventListener('change', event => {
+      app.soundEnabled = event.target.checked;
+      app.bgmMuted = !app.soundEnabled;
+      if (app.soundEnabled) {
+        startBgmMusic();
+      } else {
+        app.bgmAudio.pause();
+        app.lockBgmAudio.pause();
       }
+      if (sound.masterGain && sound.ctx) {
+        const now = sound.ctx.currentTime;
+        sound.masterGain.gain.setTargetAtTime(app.soundEnabled ? 0.9 : 0, now, 0.04);
+      }
+      updateAudioUI();
+    });
+    app.motionToggle.checked = app.reduceMotion;
+    app.motionToggle.addEventListener('change', event => {
+      app.reduceMotion = event.target.checked;
     });
 
     document.getElementById('btn-retry').addEventListener('click', () => {
-      window.location.reload();
+      app.errorModal.style.display = 'none';
+      app.startModal.classList.remove('hidden');
+      initWebcam();
     });
 
     document.getElementById('btn-replay-pill').addEventListener('click', () => {
-      resetApp();
+      if (app.state === STATES.REVEAL && app.targetLocked && app.lockedLens) {
+        transitionTo(STATES.LOCKED);
+        triggerManualBlast();
+      } else {
+        resetApp();
+      }
     });
 
     document.getElementById('btn-fullscreen').addEventListener('click', () => {
@@ -3166,24 +3027,54 @@
     window.addEventListener('resize', () => {
       // Responsive canvas scaling handled via CSS object-fit
     });
+    window.addEventListener('pagehide', () => {
+      if (app.cameraStream) app.cameraStream.getTracks().forEach(track => track.stop());
+      app.bgmAudio.pause();
+      app.lockBgmAudio.pause();
+      app.video.pause();
+      app.video.srcObject = null;
+    });
 
     /* ==========================================================================
        INITIALIZATION ENTRY POINT
        ========================================================================== */
     window.addEventListener('DOMContentLoaded', () => {
       app.ctx = app.canvas.getContext('2d');
-      app.maskCtx = app.maskCanvas.getContext('2d');
-      app.personCtx = app.personCanvas.getContext('2d');
-
-      // Initialize smoothReticle to match initial realSpecsPos
-      app.smoothReticle.x  = app.realSpecsPos.x;
-      app.smoothReticle.y  = app.realSpecsPos.y;
-      app.smoothReticle.rx = app.realSpecsPos.rx;
-      app.smoothReticle.ry = app.realSpecsPos.ry;
+      app.motionToggle.checked = app.reduceMotion;
 
       initParticlePools();
+      updateCameraUI();
+      updateTargetUI();
+      playIntroSequence();
+      startBgmMusic();
       requestAnimationFrame(renderLoop);
     });
+
+    async function playIntroSequence() {
+      const overlay = document.getElementById('intro-sequence');
+      const logo = document.getElementById('intro-logo');
+      const pause = duration => new Promise(resolve => window.setTimeout(resolve, duration));
+      logo.classList.add('is-visible');
+      await pause(3000);
+      logo.classList.remove('is-visible');
+      logo.src = 'simulation-by.png';
+      logo.alt = '';
+      void logo.offsetWidth;
+      logo.classList.add('is-visible');
+      await pause(3000);
+      logo.classList.remove('is-visible');
+      logo.src = 'panbhu_logo.png';
+      void logo.offsetWidth;
+      logo.classList.add('is-visible');
+      await pause(3000);
+      overlay.classList.add('is-leaving');
+      await pause(700);
+      overlay.remove();
+    }
+
+    document.addEventListener('pointerdown', () => {
+      if (app.soundEnabled && getActiveBgmAudio()?.paused) startBgmMusic();
+    }, { once: true });
   </script>
 </body>
 </html>
