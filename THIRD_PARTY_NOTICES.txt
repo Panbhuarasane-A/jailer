@@ -1,0 +1,12 @@
+Third-party model and runtime notices
+
+glasses-detector.onnx
+The supplied ONNX model's embedded metadata identifies it as an Ultralytics
+YOLOv8n model trained on Open Images V7 and declares AGPL-3.0. The model file
+was provided by the project owner. The license text is included in
+LICENSE-AGPL-3.0.txt; see also https://ultralytics.com/license for applicable
+Ultralytics license terms.
+
+onnxruntime-web 1.23.2
+The browser runtime is distributed under the MIT License.
+Source and license: https://github.com/microsoft/onnxruntime

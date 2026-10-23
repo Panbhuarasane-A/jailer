@@ -925,6 +925,18 @@
     }
     .settings-field { display: grid; gap: 7px; color: #e6e6e6; font: 10px var(--font-mono); }
     .settings-field small { color: #a5a5a5; font: 9px/1.5 var(--font-mono); }
+    .settings-field input[type="checkbox"] {
+      width: 17px;
+      height: 17px;
+      margin: 0 7px 0 0;
+      accent-color: var(--amber);
+      vertical-align: middle;
+    }
+    .detector-status {
+      margin: 0;
+      color: rgba(220, 224, 232, 0.7);
+      font: 10px/1.55 var(--font-display);
+    }
     .hud-panel-left,
     .site-version,
     #camera-switch-status { display: none; }
@@ -1259,7 +1271,7 @@
           <span id="state-label">CAMERA REQUIRED</span>
         </div>
         <div class="hud-chip accent">
-          <span id="tracking-info">TAP THE GLASSES TO PLACE RETICLE</span>
+          <span id="tracking-info">SHOW GLASSES TO DETECT</span>
         </div>
         <div>
           <div class="brand-wordmark">PANBUU</div>
@@ -1350,7 +1362,7 @@
         <div class="modal-badge">Jailer 2 // WebAR Experience</div>
         <h1 class="modal-title">Cinematic Vision</h1>
         <p class="modal-desc">
-          Start the camera, tap the glasses in the preview to place your reticle, then lock the target. The 3-second countdown starts the visual-only cinematic effect automatically.
+          Start the camera and hold the glasses clearly in view. Automatic detection places the target and starts the visual-only effect after a stable match. Turn off Auto-detect in Settings to aim manually.
         </p>
 
         <div class="instructions-grid">
@@ -1360,11 +1372,11 @@
           </div>
           <div class="step-box">
             <div class="step-num">02 / PLACE</div>
-            <div class="step-text">Tap the glasses in the preview to position the manual reticle.</div>
+            <div class="step-text">Hold the glasses clearly in the camera view for automatic detection.</div>
           </div>
           <div class="step-box">
-            <div class="step-num">03 / LOCK</div>
-            <div class="step-text">Press Lock Target to start the 3-second countdown.</div>
+            <div class="step-num">03 / CONFIRM</div>
+            <div class="step-text">Auto-blast starts after 3 consistent detections. Turn it off in Settings to lock manually.</div>
           </div>
           <div class="step-box">
             <div class="step-num">04 / SIMULATE</div>
@@ -1399,9 +1411,20 @@
 
     <div id="settings-modal" class="overlay-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-hidden="true">
       <div class="modal-card">
-          <div class="modal-badge">MANUAL AIM // V1.0</div>
+          <div class="modal-badge">GLASSES TRACKING // V1.0</div>
           <h2 class="modal-title" id="settings-title">Settings & Help</h2>
           <div class="settings-content">
+            <label class="settings-field">
+              <span><input id="auto-detect-glasses" type="checkbox" checked> Auto-detect glasses</span>
+              <small>Track glasses in the camera view using the on-device detector.</small>
+            </label>
+            <label class="settings-field">
+              <span><input id="auto-blast" type="checkbox" checked> Auto-blast when detected</span>
+              <small>Start the 3-second countdown after a stable glasses detection.</small>
+            </label>
+            <p id="detector-status" class="detector-status" role="status" aria-live="polite">
+              Uses a conservative confidence threshold to avoid false targets. Small or unclear glasses may be missed; turn auto-detect off to aim manually.
+            </p>
             <label class="settings-field">
               <span><input id="sound-enabled" type="checkbox" checked> Sound effects</span>
             </label>
@@ -1418,6 +1441,7 @@
   <!-- ==========================================================================
        APPLICATION LOGIC & PIPELINE (ES MODULE)
        ========================================================================== -->
+  <script src="vendor/onnxruntime-web/ort.wasm.min.js"></script>
   <script type="module">
     /* ==========================================================================
        CONSTANTS & CONFIGURATION
@@ -1426,7 +1450,12 @@
       IN_LENS_BLAST_SEC: 0.45,   // Act 2 duration (clipped inside lens)
       BURST_EXPAND_SEC: 0.75,    // Act 3 duration (overflows screen)
       LOCK_COUNTDOWN_SECONDS: 3,
-      RETICLE_SMOOTH_HALFLIFE: 0.18
+      RETICLE_SMOOTH_HALFLIFE: 0.18,
+      DETECTOR_INPUT_SIZE: 416,
+      GLASSES_CLASS_ID: 217,
+      GLASSES_CONFIDENCE_THRESHOLD: 0.35,
+      DETECTOR_INTERVAL_MS: 350,
+      STABLE_DETECTION_COUNT: 3
     };
 
     // Framerate-independent EMA alpha from half-life and delta time
@@ -1473,6 +1502,21 @@
       canLock: false,
       manualTargetPlaced: false,
       targetLocked: false,
+      targetSource: null,
+      autoDetectEnabled: true,
+      autoBlastEnabled: true,
+      autoTargetDetected: false,
+      detectorSession: null,
+      detectorLoadPromise: null,
+      detectorCanvas: document.createElement('canvas'),
+      detectorContext: null,
+      detectorInput: new Float32Array(3 * CONFIG.DETECTOR_INPUT_SIZE * CONFIG.DETECTOR_INPUT_SIZE),
+      detectorLastRunAt: 0,
+      detectorInFlight: false,
+      detectorStableCount: 0,
+      detectorMissCount: 0,
+      detectorPreviousBox: null,
+      detectorError: null,
       lockCountdownEndsAt: 0,
       lockCountdownDisplayed: null,
       renderFps: 0,
@@ -1484,7 +1528,9 @@
       // Lens Tracking & Smoothing (Exponential Moving Average)
       manualTarget: {
         x: 640,
-        y: 330
+        y: 330,
+        rx: 135,
+        ry: 90
       },
       smoothLens: {
         x: 640,
@@ -1560,7 +1606,10 @@
       rearCameraButton: document.getElementById('btn-rear-camera'),
       settingsModal: document.getElementById('settings-modal'),
       soundToggle: document.getElementById('sound-enabled'),
-      motionToggle: document.getElementById('reduce-motion')
+      motionToggle: document.getElementById('reduce-motion'),
+      autoDetectToggle: document.getElementById('auto-detect-glasses'),
+      autoBlastToggle: document.getElementById('auto-blast'),
+      detectorStatus: document.getElementById('detector-status')
     };
 
     /* ==========================================================================
@@ -2270,13 +2319,20 @@
         app.height = app.video.videoHeight;
         app.canvas.width = app.width;
         app.canvas.height = app.height;
+        app.manualTarget.rx = Math.min(app.width, app.height) * 0.11;
+        app.manualTarget.ry = app.manualTarget.rx;
         app.manualTarget.x = app.width * 0.5;
         app.manualTarget.y = app.height * 0.5;
         app.smoothLens.x = app.manualTarget.x;
         app.smoothLens.y = app.manualTarget.y;
+        app.smoothLens.rx = app.manualTarget.rx;
+        app.smoothLens.ry = app.manualTarget.ry;
         app.videoReady = true;
         app.manualTargetPlaced = false;
         app.canLock = false;
+        app.targetSource = null;
+        app.autoTargetDetected = false;
+        resetDetectorStability();
         app.statusVision.textContent = "MANUAL AIM";
         app.stateLabel.textContent = "MANUAL AIM";
         updateCameraUI();
@@ -2318,6 +2374,7 @@
         app.loadingIndicator.style.display = 'none';
         app.statusVision.textContent = "MANUAL AIM";
         if (app.soundEnabled) startBgmMusic();
+        if (app.autoDetectEnabled) loadGlassesDetector();
         return true;
       } catch (err) {
         console.error("Camera initialization failed:", err);
@@ -2347,6 +2404,9 @@
       app.manualTargetPlaced = false;
       app.targetLocked = false;
       app.canLock = false;
+      app.targetSource = null;
+      app.autoTargetDetected = false;
+      resetDetectorStability();
       updateTargetUI();
 
       if (app.cameraStream) {
@@ -2398,13 +2458,209 @@
       app.blastButton.disabled = !app.targetLocked || app.state !== STATES.LOCKED;
       app.statusTarget.textContent = app.targetLocked
         ? "LOCKED"
-        : hasTarget ? "MANUAL" : "NONE";
+        : hasTarget ? (app.targetSource === 'auto' ? "AUTO" : "MANUAL") : "NONE";
       app.statusTarget.dataset.state = app.targetLocked || hasTarget ? "good" : "";
       if (!app.targetLocked) {
         if (!app.videoReady) app.actionHint.textContent = "START CAMERA ACCESS TO BEGIN";
-        else if (!hasTarget) app.actionHint.textContent = "TAP THE GLASSES TO PLACE A RETICLE";
-        else app.actionHint.textContent = "RETICLE PLACED - LOCK TARGET TO START COUNTDOWN";
+        else if (app.autoDetectEnabled && app.detectorError) {
+          app.actionHint.textContent = "GLASSES DETECTOR UNAVAILABLE — TURN OFF AUTO-DETECT TO AIM MANUALLY";
+        } else if (app.autoDetectEnabled && !app.detectorSession) {
+          app.actionHint.textContent = "LOADING GLASSES DETECTOR...";
+        } else if (app.autoDetectEnabled && !hasTarget) {
+          app.actionHint.textContent = "SEARCHING FOR GLASSES...";
+        } else if (app.autoDetectEnabled && app.autoBlastEnabled) {
+          app.actionHint.textContent = "GLASSES DETECTED — STARTING COUNTDOWN";
+        } else if (app.autoDetectEnabled && hasTarget) {
+          app.actionHint.textContent = "GLASSES DETECTED — LOCK TARGET TO START COUNTDOWN";
+        } else if (!hasTarget) {
+          app.actionHint.textContent = "TAP THE GLASSES TO PLACE A RETICLE";
+        } else {
+          app.actionHint.textContent = "RETICLE PLACED - LOCK TARGET TO START COUNTDOWN";
+        }
       }
+    }
+
+    function resetDetectorStability() {
+      app.detectorStableCount = 0;
+      app.detectorMissCount = 0;
+      app.detectorPreviousBox = null;
+      app.detectorLastRunAt = 0;
+    }
+
+    function loadGlassesDetector() {
+      if (!app.autoDetectEnabled || !app.videoReady || app.detectorSession || app.detectorLoadPromise) return;
+      const ort = window.ort;
+      if (!ort) {
+        app.detectorError = new Error("ONNX Runtime failed to load.");
+        app.detectorStatus.textContent = app.detectorError.message;
+        console.error("Glasses detector could not start:", app.detectorError);
+        updateTargetUI();
+        return;
+      }
+
+      app.detectorError = null;
+      app.detectorStatus.textContent = "Loading the on-device glasses detector...";
+      app.actionHint.textContent = "LOADING GLASSES DETECTOR...";
+      const wasmPath = new URL("./vendor/onnxruntime-web/", document.baseURI).href;
+      ort.env.wasm.wasmPaths = {
+        mjs: new URL("ort-wasm-simd-threaded.js", wasmPath).href,
+        wasm: new URL("ort-wasm-simd-threaded.wasm", wasmPath).href
+      };
+      ort.env.wasm.numThreads = 1;
+      app.detectorLoadPromise = ort.InferenceSession.create("./glasses-detector.onnx", {
+        executionProviders: ["wasm"],
+        graphOptimizationLevel: "all"
+      }).then(session => {
+        app.detectorSession = session;
+        app.detectorError = null;
+        app.detectorStatus.textContent = app.autoBlastEnabled
+          ? "Detector ready. Auto-blast requires 3 consistent detections."
+          : "Detector ready. Lock a stable detected target manually.";
+        resetDetectorStability();
+        updateTargetUI();
+      }).catch(error => {
+        app.detectorLoadPromise = null;
+        app.detectorError = error;
+        app.detectorStatus.textContent = `Detector failed to load: ${error.message}`;
+        console.error("Glasses detector failed to load:", error);
+        updateTargetUI();
+      });
+    }
+
+    function prepareDetectorInput() {
+      const inputSize = CONFIG.DETECTOR_INPUT_SIZE;
+      const videoWidth = app.video.videoWidth;
+      const videoHeight = app.video.videoHeight;
+      if (!videoWidth || !videoHeight) throw new Error("The camera has not produced a frame for detection.");
+      if (!app.detectorContext) {
+        app.detectorCanvas.width = inputSize;
+        app.detectorCanvas.height = inputSize;
+        app.detectorContext = app.detectorCanvas.getContext('2d', { willReadFrequently: true });
+      }
+      if (!app.detectorContext) throw new Error("The glasses detector could not create its input canvas.");
+
+      const scale = Math.min(inputSize / videoWidth, inputSize / videoHeight);
+      const drawWidth = videoWidth * scale;
+      const drawHeight = videoHeight * scale;
+      const offsetX = (inputSize - drawWidth) / 2;
+      const offsetY = (inputSize - drawHeight) / 2;
+      app.detectorContext.fillStyle = "rgb(114, 114, 114)";
+      app.detectorContext.fillRect(0, 0, inputSize, inputSize);
+      app.detectorContext.drawImage(app.video, offsetX, offsetY, drawWidth, drawHeight);
+
+      const pixels = app.detectorContext.getImageData(0, 0, inputSize, inputSize).data;
+      const planeSize = inputSize * inputSize;
+      const tensorInput = app.detectorInput;
+      for (let pixel = 0; pixel < planeSize; pixel++) {
+        const rgbaIndex = pixel * 4;
+        tensorInput[pixel] = pixels[rgbaIndex] / 255;
+        tensorInput[planeSize + pixel] = pixels[rgbaIndex + 1] / 255;
+        tensorInput[planeSize * 2 + pixel] = pixels[rgbaIndex + 2] / 255;
+      }
+      return { scale, offsetX, offsetY, inputSize };
+    }
+
+    async function detectGlasses() {
+      const ort = window.ort;
+      if (!ort || !app.detectorSession) throw new Error("The glasses detector is not ready.");
+      const transform = prepareDetectorInput();
+      const tensor = new ort.Tensor("float32", app.detectorInput, [1, 3, transform.inputSize, transform.inputSize]);
+      const output = (await app.detectorSession.run({
+        [app.detectorSession.inputNames[0]]: tensor
+      }))[app.detectorSession.outputNames[0]];
+      const [batchSize, firstDimension, secondDimension] = output.dims;
+      if (batchSize !== 1 || output.dims.length !== 3) {
+        throw new Error(`Unexpected glasses detector output shape: ${output.dims.join("x")}`);
+      }
+      const channelsFirst = firstDimension < secondDimension;
+      const featureCount = channelsFirst ? firstDimension : secondDimension;
+      const candidateCount = channelsFirst ? secondDimension : firstDimension;
+      const classChannel = 4 + CONFIG.GLASSES_CLASS_ID;
+      if (classChannel >= featureCount) {
+        throw new Error(`Glasses class ${CONFIG.GLASSES_CLASS_ID} is missing from model output.`);
+      }
+
+      const readOutput = (candidate, channel) => channelsFirst
+        ? output.data[channel * candidateCount + candidate]
+        : output.data[candidate * featureCount + channel];
+      let best = null;
+      for (let candidate = 0; candidate < candidateCount; candidate++) {
+        const confidence = readOutput(candidate, classChannel);
+        if (confidence < CONFIG.GLASSES_CONFIDENCE_THRESHOLD || (best && confidence <= best.confidence)) continue;
+        const centerX = readOutput(candidate, 0);
+        const centerY = readOutput(candidate, 1);
+        const boxWidth = readOutput(candidate, 2);
+        const boxHeight = readOutput(candidate, 3);
+        const sourceX = (centerX - transform.offsetX) / transform.scale;
+        const x = app.isMirrored ? app.width - sourceX : sourceX;
+        const y = (centerY - transform.offsetY) / transform.scale;
+        const width = boxWidth / transform.scale;
+        const height = boxHeight / transform.scale;
+        if (x < 0 || x > app.width || y < 0 || y > app.height || width <= 0 || height <= 0) continue;
+        best = { x, y, width, height, confidence };
+      }
+      return best;
+    }
+
+    function handleGlassesDetection(detection) {
+      if (app.targetLocked || app.state !== STATES.IDLE) return;
+      if (!detection) {
+        app.detectorMissCount++;
+        app.detectorStableCount = 0;
+        app.detectorPreviousBox = null;
+        if (app.detectorMissCount >= 3 && app.targetSource === 'auto') {
+          app.manualTargetPlaced = false;
+          app.canLock = false;
+          app.autoTargetDetected = false;
+          app.targetSource = null;
+          updateTargetUI();
+        }
+        if (!app.manualTargetPlaced) app.actionHint.textContent = "SEARCHING FOR GLASSES...";
+        return;
+      }
+
+      app.detectorMissCount = 0;
+      const previous = app.detectorPreviousBox;
+      const movement = previous
+        ? Math.hypot(detection.x - previous.x, detection.y - previous.y)
+        : Infinity;
+      const consistent = previous
+        && movement <= Math.max(32, Math.max(detection.width, detection.height) * 0.55);
+      app.detectorStableCount = consistent ? app.detectorStableCount + 1 : 1;
+      app.detectorPreviousBox = detection;
+      app.manualTarget.x = detection.x;
+      app.manualTarget.y = detection.y;
+      app.manualTarget.rx = Math.max(Math.min(app.width, app.height) * 0.055, detection.width * 0.58);
+      app.manualTarget.ry = Math.max(Math.min(app.width, app.height) * 0.04, detection.height * 0.72);
+      app.targetSource = 'auto';
+      app.autoTargetDetected = app.detectorStableCount >= CONFIG.STABLE_DETECTION_COUNT;
+      app.manualTargetPlaced = app.autoTargetDetected;
+      app.canLock = app.autoTargetDetected;
+      if (app.autoTargetDetected) {
+        app.statusVision.textContent = "GLASSES DETECTED";
+        updateTargetUI();
+        if (app.autoBlastEnabled) lockTarget();
+      } else {
+        app.actionHint.textContent = "VERIFYING GLASSES...";
+      }
+    }
+
+    function scheduleGlassesDetection(now) {
+      if (!app.autoDetectEnabled || !app.videoReady || !app.detectorSession
+        || app.detectorInFlight || now - app.detectorLastRunAt < CONFIG.DETECTOR_INTERVAL_MS
+        || app.targetLocked || app.state !== STATES.IDLE) return;
+      app.detectorLastRunAt = now;
+      app.detectorInFlight = true;
+      detectGlasses().then(detection => {
+        if (app.autoDetectEnabled) handleGlassesDetection(detection);
+      }).catch(error => {
+        app.detectorError = error;
+        app.detectorStatus.textContent = `Detection stopped: ${error.message}`;
+        app.actionHint.textContent = "GLASSES DETECTION FAILED — CHECK SETTINGS";
+        console.error("Glasses detection failed:", error);
+      }).then(() => {
+        app.detectorInFlight = false;
+      });
     }
 
     function lockTarget() {
@@ -2649,6 +2905,9 @@
       app.targetLocked = false;
       app.canLock = false;
       app.manualTargetPlaced = false;
+      app.targetSource = null;
+      app.autoTargetDetected = false;
+      resetDetectorStability();
       transitionTo(STATES.RESET);
       updateTargetUI();
     }
@@ -2700,7 +2959,7 @@
       ctx.stroke();
       ctx.font = '10px "Open Sans", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('TAP TO PLACE', x, y + radius + 22);
+      ctx.fillText(app.autoDetectEnabled ? 'SEARCHING FOR GLASSES' : 'TAP TO PLACE', x, y + radius + 22);
       ctx.restore();
     }
 
@@ -2745,7 +3004,7 @@
 
       ctx.font = '600 10px "Open Sans", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(isLocked ? 'TARGET LOCKED' : 'MANUAL TARGET', x, y - scopeRadius - 14);
+      ctx.fillText(isLocked ? 'TARGET LOCKED' : app.targetSource === 'auto' ? 'GLASSES DETECTED' : 'MANUAL TARGET', x, y - scopeRadius - 14);
 
       ctx.restore();
     }
@@ -2874,17 +3133,20 @@
 
       const nowMs = performance.now();
       updateLockCountdown(nowMs);
-      const targetRadius = Math.min(width, height) * 0.11;
+      scheduleGlassesDetection(nowMs);
+      const defaultTargetRadius = Math.min(width, height) * 0.11;
+      const targetRadiusX = app.autoTargetDetected ? app.manualTarget.rx : defaultTargetRadius;
+      const targetRadiusY = app.autoTargetDetected ? app.manualTarget.ry : defaultTargetRadius;
       const smoothAlpha = emaAlpha(CONFIG.RETICLE_SMOOTH_HALFLIFE, dt);
       app.smoothLens.x += (app.manualTarget.x - app.smoothLens.x) * smoothAlpha;
       app.smoothLens.y += (app.manualTarget.y - app.smoothLens.y) * smoothAlpha;
-      app.smoothLens.rx += (targetRadius - app.smoothLens.rx) * smoothAlpha;
-      app.smoothLens.ry += (targetRadius - app.smoothLens.ry) * smoothAlpha;
+      app.smoothLens.rx += (targetRadiusX - app.smoothLens.rx) * smoothAlpha;
+      app.smoothLens.ry += (targetRadiusY - app.smoothLens.ry) * smoothAlpha;
       app.smoothLens.detected = app.manualTargetPlaced;
       if (app.trackingInfo) {
-        app.trackingInfo.textContent = app.manualTargetPlaced
-          ? "MANUAL TARGET SELECTED"
-          : "TAP THE GLASSES TO PLACE RETICLE";
+        app.trackingInfo.textContent = app.targetSource === 'auto'
+          ? "GLASSES DETECTED"
+          : app.manualTargetPlaced ? "MANUAL TARGET SELECTED" : "TAP THE GLASSES TO PLACE RETICLE";
       }
 
       // 4. Update State Timers & State Machine Progression
@@ -3093,6 +3355,10 @@
     app.canvas.addEventListener('pointerdown', event => {
       if (!app.videoReady || app.targetLocked
         || ![STATES.IDLE, STATES.LOCKING].includes(app.state)) return;
+      if (app.autoDetectEnabled) {
+        app.actionHint.textContent = "TURN OFF AUTO-DETECT IN SETTINGS TO PLACE A MANUAL RETICLE";
+        return;
+      }
       const bounds = app.canvas.getBoundingClientRect();
       const scale = getComputedStyle(app.canvas).objectFit === 'contain'
         ? Math.min(bounds.width / app.width, bounds.height / app.height)
@@ -3105,11 +3371,15 @@
       if (app.state === STATES.LOCKING) transitionTo(STATES.IDLE);
       app.manualTarget.x = x;
       app.manualTarget.y = y;
+      app.manualTarget.rx = Math.min(app.width, app.height) * 0.11;
+      app.manualTarget.ry = app.manualTarget.rx;
       app.smoothLens.x = x;
       app.smoothLens.y = y;
       app.smoothLens.detected = true;
       app.manualTargetPlaced = true;
       app.canLock = true;
+      app.targetSource = 'manual';
+      app.autoTargetDetected = false;
       app.statusVision.textContent = "MANUAL AIM";
       updateTargetUI();
     });
@@ -3187,6 +3457,36 @@
       }
       updateAudioUI();
     });
+    app.autoDetectToggle.addEventListener('change', event => {
+      app.autoDetectEnabled = event.target.checked;
+      resetDetectorStability();
+      if (!app.targetLocked && (app.targetSource === 'auto' || app.autoDetectEnabled)) {
+        app.manualTargetPlaced = false;
+        app.canLock = false;
+        app.autoTargetDetected = false;
+        app.targetSource = null;
+      }
+      if (app.autoDetectEnabled) {
+        app.detectorStatus.textContent = app.detectorSession
+          ? "Detector ready. It is searching for glasses."
+          : "Loading the on-device glasses detector...";
+        if (app.videoReady) loadGlassesDetector();
+      } else {
+        app.detectorStatus.textContent = "Auto-detection is off. Tap the preview to place a manual reticle.";
+      }
+      updateTargetUI();
+    });
+    app.autoBlastToggle.addEventListener('change', event => {
+      app.autoBlastEnabled = event.target.checked;
+      if (app.autoBlastEnabled && app.autoTargetDetected && app.canLock && !app.targetLocked) {
+        lockTarget();
+      } else {
+        updateTargetUI();
+      }
+      app.detectorStatus.textContent = app.autoBlastEnabled
+        ? "Auto-blast is on. It starts after 3 consistent glasses detections."
+        : "Auto-blast is off. Lock the detected glasses manually to start the countdown.";
+    });
     app.motionToggle.checked = app.reduceMotion;
     app.motionToggle.addEventListener('change', event => {
       app.reduceMotion = event.target.checked;
@@ -3230,6 +3530,8 @@
     window.addEventListener('DOMContentLoaded', () => {
       app.ctx = app.canvas.getContext('2d');
       app.motionToggle.checked = app.reduceMotion;
+      app.autoDetectToggle.checked = app.autoDetectEnabled;
+      app.autoBlastToggle.checked = app.autoBlastEnabled;
 
       initParticlePools();
       updateCameraUI();
