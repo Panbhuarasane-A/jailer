@@ -35,6 +35,7 @@ const MIME_TYPES = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.wasm': 'application/wasm',
+  '.onnx': 'application/octet-stream',
   '.tflite': 'application/octet-stream',
   '.task': 'application/octet-stream'
 };

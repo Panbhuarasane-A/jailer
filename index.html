@@ -1329,8 +1329,8 @@
       <!-- IGNITE BLAST trigger -->
       <div class="trigger-section">
         <div class="trigger-controls">
-        <button id="btn-target-lock" class="lock-control" type="button" disabled aria-pressed="false">LOCK TARGET</button>
-        <button id="btn-power-fire" class="btn-power-fire" title="Run visual simulation" disabled>
+        <button id="btn-target-lock" class="lock-control" type="button" aria-pressed="false">LOCK TARGET</button>
+        <button id="btn-power-fire" class="btn-power-fire" title="Ignite Blast">
           <div class="pulse-ring"></div>
           <div class="pulse-ring pulse-ring-2"></div>
           <span class="fire-icon">⚡</span>
@@ -1415,12 +1415,12 @@
           <h2 class="modal-title" id="settings-title">Settings & Help</h2>
           <div class="settings-content">
             <label class="settings-field">
-              <span><input id="auto-detect-glasses" type="checkbox" checked> Auto-detect glasses</span>
-              <small>Track glasses in the camera view using the on-device detector.</small>
+              <span><input id="auto-detect-glasses" type="checkbox"> Auto-detect glasses (AI)</span>
+              <small>Track glasses using on-device neural detector (experimental, higher CPU).</small>
             </label>
             <label class="settings-field">
-              <span><input id="auto-blast" type="checkbox" checked> Auto-blast when detected</span>
-              <small>Start the 3-second countdown after a stable glasses detection.</small>
+              <span><input id="auto-blast" type="checkbox"> Auto-blast when detected</span>
+              <small>Automatically start countdown when glasses are detected.</small>
             </label>
             <p id="detector-status" class="detector-status" role="status" aria-live="polite">
               Uses a conservative confidence threshold to avoid false targets. Small or unclear glasses may be missed; turn auto-detect off to aim manually.
@@ -1441,7 +1441,7 @@
   <!-- ==========================================================================
        APPLICATION LOGIC & PIPELINE (ES MODULE)
        ========================================================================== -->
-  <script src="vendor/onnxruntime-web/ort.wasm.min.js"></script>
+  <script defer src="vendor/onnxruntime-web/ort.wasm.min.js"></script>
   <script type="module">
     /* ==========================================================================
        CONSTANTS & CONFIGURATION
@@ -1454,7 +1454,7 @@
       DETECTOR_INPUT_SIZE: 416,
       GLASSES_CLASS_ID: 217,
       GLASSES_CONFIDENCE_THRESHOLD: 0.35,
-      DETECTOR_INTERVAL_MS: 350,
+      DETECTOR_INTERVAL_MS: 1000,
       STABLE_DETECTION_COUNT: 3
     };
 
@@ -1499,12 +1499,12 @@
       cameraStream: null,
       cameraDevices: [],
       activeCameraLabel: "",
-      canLock: false,
-      manualTargetPlaced: false,
+      canLock: true,
+      manualTargetPlaced: true,
       targetLocked: false,
-      targetSource: null,
-      autoDetectEnabled: true,
-      autoBlastEnabled: true,
+      targetSource: 'manual',
+      autoDetectEnabled: false,
+      autoBlastEnabled: false,
       autoTargetDetected: false,
       detectorSession: null,
       detectorLoadPromise: null,
@@ -2315,26 +2315,35 @@
           ? actualMode
           : facingMode;
         app.isMirrored = app.facingMode === 'user';
-        app.width = app.video.videoWidth;
-        app.height = app.video.videoHeight;
+        const maxDim = 1280;
+        let targetW = app.video.videoWidth || 1280;
+        let targetH = app.video.videoHeight || 720;
+        if (Math.max(targetW, targetH) > maxDim) {
+          const s = maxDim / Math.max(targetW, targetH);
+          targetW = Math.round(targetW * s);
+          targetH = Math.round(targetH * s);
+        }
+        app.width = targetW;
+        app.height = targetH;
         app.canvas.width = app.width;
         app.canvas.height = app.height;
-        app.manualTarget.rx = Math.min(app.width, app.height) * 0.11;
-        app.manualTarget.ry = app.manualTarget.rx;
+        app.manualTarget.rx = Math.min(app.width, app.height) * 0.12;
+        app.manualTarget.ry = app.manualTarget.rx * 0.75;
         app.manualTarget.x = app.width * 0.5;
-        app.manualTarget.y = app.height * 0.5;
+        app.manualTarget.y = app.height * 0.45;
         app.smoothLens.x = app.manualTarget.x;
         app.smoothLens.y = app.manualTarget.y;
         app.smoothLens.rx = app.manualTarget.rx;
         app.smoothLens.ry = app.manualTarget.ry;
+        app.smoothLens.detected = true;
         app.videoReady = true;
-        app.manualTargetPlaced = false;
-        app.canLock = false;
-        app.targetSource = null;
+        app.manualTargetPlaced = true;
+        app.canLock = true;
+        app.targetSource = 'manual';
         app.autoTargetDetected = false;
         resetDetectorStability();
-        app.statusVision.textContent = "MANUAL AIM";
-        app.stateLabel.textContent = "MANUAL AIM";
+        app.statusVision.textContent = "TARGET READY";
+        app.stateLabel.textContent = "TARGET READY";
         updateCameraUI();
         updateTargetUI();
         return true;
@@ -2452,30 +2461,29 @@
 
     function updateTargetUI() {
       const hasTarget = app.manualTargetPlaced;
-      app.lockButton.disabled = !app.targetLocked && !(app.canLock && hasTarget);
+      app.lockButton.disabled = !app.videoReady;
       app.lockButton.textContent = app.targetLocked ? "UNLOCK TARGET" : "LOCK TARGET";
       app.lockButton.setAttribute('aria-pressed', String(app.targetLocked));
-      app.blastButton.disabled = !app.targetLocked || app.state !== STATES.LOCKED;
+      app.blastButton.disabled = !app.videoReady;
       app.statusTarget.textContent = app.targetLocked
         ? "LOCKED"
-        : hasTarget ? (app.targetSource === 'auto' ? "AUTO" : "MANUAL") : "NONE";
-      app.statusTarget.dataset.state = app.targetLocked || hasTarget ? "good" : "";
+        : hasTarget ? (app.targetSource === 'auto' ? "AUTO" : "MANUAL") : "READY";
+      app.statusTarget.dataset.state = app.videoReady ? "good" : "";
       if (!app.targetLocked) {
-        if (!app.videoReady) app.actionHint.textContent = "START CAMERA ACCESS TO BEGIN";
-        else if (app.autoDetectEnabled && app.detectorError) {
-          app.actionHint.textContent = "GLASSES DETECTOR UNAVAILABLE — TURN OFF AUTO-DETECT TO AIM MANUALLY";
+        if (!app.videoReady) {
+          app.actionHint.textContent = "START CAMERA ACCESS TO BEGIN";
+        } else if (app.autoDetectEnabled && app.detectorError) {
+          app.actionHint.textContent = "DETECTOR UNAVAILABLE — TAP SCREEN TO AIM MANUALLY";
         } else if (app.autoDetectEnabled && !app.detectorSession) {
-          app.actionHint.textContent = "LOADING GLASSES DETECTOR...";
+          app.actionHint.textContent = "LOADING DETECTOR...";
         } else if (app.autoDetectEnabled && !hasTarget) {
           app.actionHint.textContent = "SEARCHING FOR GLASSES...";
         } else if (app.autoDetectEnabled && app.autoBlastEnabled) {
           app.actionHint.textContent = "GLASSES DETECTED — STARTING COUNTDOWN";
         } else if (app.autoDetectEnabled && hasTarget) {
-          app.actionHint.textContent = "GLASSES DETECTED — LOCK TARGET TO START COUNTDOWN";
-        } else if (!hasTarget) {
-          app.actionHint.textContent = "TAP THE GLASSES TO PLACE A RETICLE";
+          app.actionHint.textContent = "GLASSES DETECTED — TAP IGNITE BLAST OR LOCK TARGET";
         } else {
-          app.actionHint.textContent = "RETICLE PLACED - LOCK TARGET TO START COUNTDOWN";
+          app.actionHint.textContent = "TAP SCREEN TO REPOSITION TARGET // TAP IGNITE BLAST TO FIRE";
         }
       }
     }
@@ -2551,11 +2559,12 @@
       const pixels = app.detectorContext.getImageData(0, 0, inputSize, inputSize).data;
       const planeSize = inputSize * inputSize;
       const tensorInput = app.detectorInput;
+      const inv255 = 1 / 255;
       for (let pixel = 0; pixel < planeSize; pixel++) {
         const rgbaIndex = pixel * 4;
-        tensorInput[pixel] = pixels[rgbaIndex] / 255;
-        tensorInput[planeSize + pixel] = pixels[rgbaIndex + 1] / 255;
-        tensorInput[planeSize * 2 + pixel] = pixels[rgbaIndex + 2] / 255;
+        tensorInput[pixel] = pixels[rgbaIndex] * inv255;
+        tensorInput[planeSize + pixel] = pixels[rgbaIndex + 1] * inv255;
+        tensorInput[planeSize * 2 + pixel] = pixels[rgbaIndex + 2] * inv255;
       }
       return { scale, offsetX, offsetY, inputSize };
     }
@@ -2893,9 +2902,28 @@
     }
 
     function triggerManualBlast() {
-      if (!app.targetLocked || app.state !== STATES.LOCKED || !app.lockedLens) {
-        app.actionHint.textContent = "NO LOCKED TARGET — PLACE AND LOCK A TARGET FIRST";
-        return;
+      if (!app.videoReady) return;
+      if (app.state === STATES.BLAST_IN_LENS || app.state === STATES.BURST) return;
+
+      if (navigator.vibrate) {
+        try { navigator.vibrate([100, 50, 200]); } catch (e) {}
+      }
+
+      if (!app.lockedLens) {
+        if (!app.manualTargetPlaced) {
+          app.manualTarget.x = app.width * 0.5;
+          app.manualTarget.y = app.height * 0.45;
+          app.manualTarget.rx = Math.min(app.width, app.height) * 0.12;
+          app.manualTarget.ry = app.manualTarget.rx * 0.75;
+          app.smoothLens.x = app.manualTarget.x;
+          app.smoothLens.y = app.manualTarget.y;
+          app.smoothLens.rx = app.manualTarget.rx;
+          app.smoothLens.ry = app.manualTarget.ry;
+          app.smoothLens.detected = true;
+          app.manualTargetPlaced = true;
+        }
+        app.lockedLens = { ...app.smoothLens };
+        app.targetLocked = true;
       }
 
       transitionTo(STATES.BLAST_IN_LENS);
@@ -3205,7 +3233,7 @@
         ? app.lockedLens
         : app.smoothLens;
 
-        // 1. Draw Outside Lens: Blurred, Brightness 0.7, Desaturated Webcam
+        // 1. Draw Camera Video (Single hardware-accelerated pass)
         ctx.save();
         ctx.filter = 'none';
         if (app.isMirrored) {
@@ -3216,45 +3244,29 @@
         }
         ctx.restore();
 
-        // Heavy Vignette Overlay outside lens
+        // 2. Cinematic Vignette Overlay
         ctx.save();
         const vig = ctx.createRadialGradient(
           width * 0.5, height * 0.5, Math.min(width, height) * 0.25,
           width * 0.5, height * 0.5, Math.max(width, height) * 0.75
         );
         vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        vig.addColorStop(0.65, 'rgba(0, 0, 0, 0)');
-        vig.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        vig.addColorStop(0.65, 'rgba(0, 0, 0, 0.22)');
+        vig.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
         ctx.fillStyle = vig;
         ctx.fillRect(0, 0, width, height);
         ctx.restore();
 
-        // 2. Draw the selected target area.
-        if (currentLens && currentLens.detected) {
+        // 3. Act 2: Fire, Sparks, Smoke clipped INSIDE the lens
+        if (app.state === STATES.BLAST_IN_LENS && currentLens && currentLens.detected) {
           ctx.save();
           traceLensPath(ctx, currentLens.x, currentLens.y, currentLens.rx, currentLens.ry, currentLens.angle);
           ctx.clip();
-
-          // Sharp, warm-graded video frame inside the glass
-          ctx.save();
-          ctx.filter = 'none';
-          if (app.isMirrored) {
-            ctx.scale(-1, 1);
-            ctx.drawImage(app.video, -width, 0, width, height);
-          } else {
-            ctx.drawImage(app.video, 0, 0, width, height);
-          }
-          ctx.restore();
-
-          // Act 2: Fire, Sparks, Smoke clipped INSIDE the lens
-          if (app.state === STATES.BLAST_IN_LENS) {
-            drawParticles(ctx, true);
-          }
-
+          drawParticles(ctx, true);
           ctx.restore();
         }
 
-        // 3. Act 3: BURST (Remove clip, explosion fills screen!)
+        // 4. Act 3: BURST (Remove clip, explosion fills screen!)
         if (app.state === STATES.BURST) {
           drawParticles(ctx, false);
         }
@@ -3355,10 +3367,6 @@
     app.canvas.addEventListener('pointerdown', event => {
       if (!app.videoReady || app.targetLocked
         || ![STATES.IDLE, STATES.LOCKING].includes(app.state)) return;
-      if (app.autoDetectEnabled) {
-        app.actionHint.textContent = "TURN OFF AUTO-DETECT IN SETTINGS TO PLACE A MANUAL RETICLE";
-        return;
-      }
       const bounds = app.canvas.getBoundingClientRect();
       const scale = getComputedStyle(app.canvas).objectFit === 'contain'
         ? Math.min(bounds.width / app.width, bounds.height / app.height)
@@ -3371,16 +3379,18 @@
       if (app.state === STATES.LOCKING) transitionTo(STATES.IDLE);
       app.manualTarget.x = x;
       app.manualTarget.y = y;
-      app.manualTarget.rx = Math.min(app.width, app.height) * 0.11;
-      app.manualTarget.ry = app.manualTarget.rx;
+      app.manualTarget.rx = Math.min(app.width, app.height) * 0.12;
+      app.manualTarget.ry = app.manualTarget.rx * 0.75;
       app.smoothLens.x = x;
       app.smoothLens.y = y;
+      app.smoothLens.rx = app.manualTarget.rx;
+      app.smoothLens.ry = app.manualTarget.ry;
       app.smoothLens.detected = true;
       app.manualTargetPlaced = true;
       app.canLock = true;
       app.targetSource = 'manual';
       app.autoTargetDetected = false;
-      app.statusVision.textContent = "MANUAL AIM";
+      app.statusVision.textContent = "TARGET READY";
       updateTargetUI();
     });
 
@@ -3543,24 +3553,37 @@
 
     async function playIntroSequence() {
       const overlay = document.getElementById('intro-sequence');
+      if (!overlay) return;
       const logo = document.getElementById('intro-logo');
-      const pause = duration => new Promise(resolve => window.setTimeout(resolve, duration));
+      let skipped = false;
+      const dismiss = () => {
+        if (skipped) return;
+        skipped = true;
+        overlay.classList.add('is-leaving');
+        setTimeout(() => overlay.remove(), 350);
+      };
+      overlay.addEventListener('pointerdown', dismiss, { once: true });
+      const pause = duration => new Promise(resolve => {
+        const timer = window.setTimeout(resolve, duration);
+        overlay.addEventListener('pointerdown', () => { clearTimeout(timer); resolve(); }, { once: true });
+      });
+      if (skipped) return;
       logo.classList.add('is-visible');
-      await pause(3000);
+      await pause(1400);
+      if (skipped) return;
       logo.classList.remove('is-visible');
       logo.src = 'simulation-by.png';
       logo.alt = '';
       void logo.offsetWidth;
       logo.classList.add('is-visible');
-      await pause(3000);
+      await pause(1400);
+      if (skipped) return;
       logo.classList.remove('is-visible');
       logo.src = 'panbhu_logo.png';
       void logo.offsetWidth;
       logo.classList.add('is-visible');
-      await pause(3000);
-      overlay.classList.add('is-leaving');
-      await pause(700);
-      overlay.remove();
+      await pause(1400);
+      dismiss();
     }
 
     document.addEventListener('pointerdown', () => {
