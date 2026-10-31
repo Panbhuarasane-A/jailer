@@ -1273,6 +1273,23 @@
       background: rgba(255, 149, 0, 0.16);
     }
 
+    /* 3D Character Enhancements (Tiger FX) */
+    .btn-tiger-fx {
+      border-color: rgba(255, 214, 10, 0.4);
+      color: #ffd60a;
+      transition: all 0.25s ease;
+    }
+    .btn-tiger-fx:hover {
+      border-color: #ffd60a;
+      background: rgba(255, 214, 10, 0.16);
+    }
+    .btn-tiger-fx.is-active {
+      background: rgba(255, 214, 10, 0.22) !important;
+      border-color: #ffd60a !important;
+      box-shadow: 0 0 16px rgba(255, 214, 10, 0.45) !important;
+      color: #fff !important;
+    }
+
     /* Floating Live Recording HUD Badge */
     .recording-hud-badge {
       position: absolute;
@@ -1521,6 +1538,233 @@
       18%, 78% { opacity: 1; }
       100% { opacity: 0; }
     }
+
+    :root {
+      --surface: rgba(15, 17, 22, 0.78);
+      --surface-strong: rgba(13, 15, 20, 0.94);
+      --border: rgba(255, 255, 255, 0.14);
+      --border-warm: rgba(255, 175, 85, 0.44);
+      --text-secondary: rgba(236, 239, 244, 0.7);
+      --text-muted: rgba(236, 239, 244, 0.43);
+      --blur: blur(26px) saturate(145%);
+    }
+
+    #app-container::before,
+    #app-container::after {
+      content: '';
+      position: absolute;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    #app-container::before {
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(5, 6, 8, 0.76) 0%, transparent 22%, transparent 68%, rgba(5, 6, 8, 0.82) 100%),
+        radial-gradient(circle at 50% 42%, transparent 34%, rgba(0, 0, 0, 0.34) 100%);
+    }
+
+    #app-container::after {
+      inset: 0;
+      opacity: 0.16;
+      background-image: linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(to bottom, black, transparent 45%, black);
+    }
+
+    #top-hud-bar {
+      padding: max(18px, env(safe-area-inset-top)) clamp(18px, 4vw, 42px) 0;
+      grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
+      gap: 16px;
+    }
+
+    .hud-panel-left,
+    .hud-panel-right {
+      gap: 8px;
+    }
+
+    .hud-chip,
+    .hud-icon-btn,
+    .settings-control,
+    .camera-selector,
+    .tech-panel,
+    #bottom-hud-bar,
+    .modal-card {
+      border-color: rgba(255, 255, 255, 0.14);
+      background: linear-gradient(145deg, rgba(20, 23, 30, 0.82), rgba(9, 11, 15, 0.7));
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+      backdrop-filter: blur(22px) saturate(140%);
+      -webkit-backdrop-filter: blur(22px) saturate(140%);
+    }
+
+    .hud-chip {
+      padding: 7px 11px;
+      border-radius: 10px;
+      font-size: 9px;
+      letter-spacing: 1.4px;
+    }
+
+    .hud-icon-btn,
+    .settings-control {
+      min-height: 42px;
+      padding: 0 13px;
+      border-radius: 12px;
+      font-size: 9px;
+      letter-spacing: 1.15px;
+    }
+
+    .hud-icon-btn:hover,
+    .settings-control:hover {
+      border-color: var(--border-warm);
+      background: rgba(42, 34, 26, 0.86);
+    }
+
+    #top-logo {
+      height: 48px;
+      max-width: 240px;
+      filter: drop-shadow(0 5px 20px rgba(0, 0, 0, 0.9));
+    }
+
+    .camera-selector {
+      top: 132px;
+      left: clamp(18px, 4vw, 42px);
+      padding: 5px;
+      border-radius: 14px;
+    }
+
+    .camera-option {
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-size: 8px;
+      letter-spacing: 1.1px;
+    }
+
+    .tech-panel {
+      top: 132px;
+      right: clamp(18px, 4vw, 42px);
+      width: 218px;
+      padding: 14px 15px;
+      border-radius: 16px;
+    }
+
+    .tech-panel h2 {
+      margin-bottom: 8px;
+      color: #ffbf78;
+      font-size: 9px;
+      letter-spacing: 2px;
+    }
+
+    .tech-row {
+      padding: 7px 0;
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+
+    #bottom-hud-bar {
+      bottom: max(18px, env(safe-area-inset-bottom));
+      width: min(780px, calc(100% - 36px));
+      padding: 14px 16px 13px;
+      border-radius: 22px;
+    }
+
+    .trigger-controls {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .lock-control {
+      min-width: 166px;
+      border-radius: 13px;
+    }
+
+    .btn-power-fire {
+      min-width: 230px;
+      min-height: 52px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, #f05b13 0%, #ff8a27 52%, #d82c43 100%);
+      box-shadow: 0 10px 30px rgba(222, 71, 20, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-power-fire:hover {
+      box-shadow: 0 14px 38px rgba(242, 87, 22, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .trigger-hint {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 8px;
+      letter-spacing: 1.25px;
+    }
+
+    .brand-row {
+      padding-top: 2px;
+    }
+
+    .modal-card {
+      max-width: 560px;
+      padding: 42px 44px 38px;
+      border-radius: 24px;
+    }
+
+    .modal-card::before {
+      height: 3px;
+      background: linear-gradient(90deg, #ff7043, #ffb347 52%, #ffd166);
+    }
+
+    .modal-badge {
+      margin-bottom: 20px;
+      color: #ffc078;
+      background: rgba(255, 159, 67, 0.1);
+      border-color: rgba(255, 178, 91, 0.28);
+    }
+
+    .modal-title {
+      font-size: clamp(24px, 4vw, 32px);
+      letter-spacing: 1.5px;
+    }
+
+    .modal-desc {
+      max-width: 440px;
+      margin: 0 auto 26px;
+      color: rgba(222, 226, 235, 0.72);
+    }
+
+    .step-box {
+      min-height: 82px;
+      padding: 14px 15px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .step-num {
+      color: #ffb347;
+    }
+
+    .btn-primary {
+      min-height: 54px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, #f05b13, #f79b37 55%, #d93848);
+      box-shadow: 0 12px 30px rgba(232, 83, 24, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    @media (max-width: 700px) {
+      #app-container::after { background-size: 48px 48px; }
+      #top-hud-bar { padding-left: 12px; padding-right: 12px; }
+      #top-logo { height: 32px; }
+      .camera-selector { top: 136px; left: 12px; }
+      .tech-panel { top: 136px; right: 12px; width: 188px; }
+      #bottom-hud-bar {
+        bottom: max(12px, env(safe-area-inset-bottom));
+        width: calc(100% - 24px);
+        padding: 12px 11px 11px;
+        border-radius: 18px;
+      }
+      .trigger-controls { gap: 7px; }
+      .lock-control { min-width: 0; flex: 0.85; padding: 0 8px; }
+      .btn-power-fire { min-width: 0; flex: 1.15; padding: 12px 10px; }
+      .modal-card { padding: 32px 20px 24px; border-radius: 20px; }
+    }
   </style>
 </head>
 <body>
@@ -1581,6 +1825,10 @@
           <button id="btn-audio-toggle" class="hud-icon-btn" title="Toggle Audio">
             <span id="audio-icon">🔊</span>
             <span id="audio-vol-text">LOUD</span>
+          </button>
+          <button id="btn-tiger-fx" class="hud-icon-btn btn-tiger-fx is-active" type="button" title="Toggle 3D Jailer Glasses, Cigar & Machete FX">
+            <span>🕶️</span>
+            <span id="tiger-fx-label">TIGER FX</span>
           </button>
           <button id="btn-record" class="hud-icon-btn btn-record" type="button" title="Record AR Blast with Audio">
             <span class="rec-dot"></span>
@@ -1738,6 +1986,18 @@
               Uses a conservative confidence threshold to avoid false targets. Small or unclear glasses may be missed; turn auto-detect off to aim manually.
             </p>
             <label class="settings-field">
+              <span><input id="tiger-shades-enabled" type="checkbox" checked> 🕶️ 3D Jailer Sunglasses Try-On</span>
+              <small>Virtual metallic Jailer aviator sunglasses with chrome double bridge.</small>
+            </label>
+            <label class="settings-field">
+              <span><input id="tiger-cigar-enabled" type="checkbox" checked> 🚬 Signature Cigar & Rising Smoke</span>
+              <small>Smoking cigar locked to mouth with dynamic curling smoke plumes.</small>
+            </label>
+            <label class="settings-field">
+              <span><input id="tiger-blade-enabled" type="checkbox" checked> 🗡️ Machete Blade Lens Reflection</span>
+              <small>Gleaming razor-sharp curved blade reflection shimmering across the dark lenses.</small>
+            </label>
+            <label class="settings-field">
               <span><input id="sound-enabled" type="checkbox" checked> Sound effects</span>
             </label>
             <label class="settings-field">
@@ -1823,6 +2083,8 @@
   <!-- ==========================================================================
        APPLICATION LOGIC & PIPELINE (ES MODULE)
        ========================================================================== -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script defer src="vendor/onnxruntime-web/ort.wasm.min.js"></script>
   <script type="module">
     /* ==========================================================================
@@ -2008,7 +2270,31 @@
       autoRecordBlast: true,
       btnSaveBlastPill: document.getElementById('btn-save-blast-pill'),
       recordingSavedModal: document.getElementById('recording-saved-modal'),
-      recordingsGalleryModal: document.getElementById('recordings-gallery-modal')
+      recordingsGalleryModal: document.getElementById('recordings-gallery-modal'),
+
+      // 3D Character Enhancements (Tiger FX)
+      tigerFxEnabled: true,
+      tigerShadesEnabled: true,
+      tigerCigarEnabled: true,
+      tigerBladeEnabled: true,
+      btnTigerFx: document.getElementById('btn-tiger-fx'),
+      tigerShadesToggle: document.getElementById('tiger-shades-enabled'),
+      tigerCigarToggle: document.getElementById('tiger-cigar-enabled'),
+      tigerBladeToggle: document.getElementById('tiger-blade-enabled'),
+      cigarSmokePool: [],
+      tigerFace: {
+        x: 640,
+        y: 330,
+        scale: 1.0,
+        angle: 0,
+        mouthX: 600,
+        mouthY: 420,
+        mouthAngle: 0.32,
+        detected: false,
+        source: 'reticle'
+      },
+      faceMeshTracker: null,
+      faceMeshInFlight: false
     };
 
     /* ==========================================================================
