@@ -102,15 +102,19 @@
       max-height: 42vh;
       object-fit: contain;
       opacity: 0;
-      transform: scale(0.82);
-      filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.08));
+      transform: scale(0.92);
+      filter: drop-shadow(0 0 20px rgba(255, 149, 0, 0.1));
+      transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), filter 0.55s ease;
     }
-    #intro-logo.is-visible { animation: intro-logo-zoom 3s cubic-bezier(0.2, 0.65, 0.3, 1) both; }
-    @keyframes intro-logo-zoom {
-      0% { opacity: 0; transform: scale(0.82); }
-      18% { opacity: 1; }
-      78% { opacity: 1; transform: scale(1.04); }
-      100% { opacity: 0; transform: scale(1.12); }
+    #intro-logo.is-visible {
+      opacity: 1;
+      transform: scale(1.02);
+      filter: drop-shadow(0 0 35px rgba(255, 149, 0, 0.42));
+    }
+    #intro-logo.is-fading-out {
+      opacity: 0;
+      transform: scale(1.07);
+      filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0));
     }
     .lock-countdown {
       position: absolute;
@@ -1531,9 +1535,9 @@
     <div id="letterbox-bottom" class="letterbox-bar"></div>
 
     <!-- Background Theme Music (Jailer 2 BGM Track) -->
-    <audio id="bgm-audio" src="bgm.mp3" loop preload="auto" crossorigin="anonymous"></audio>
-    <audio id="lock-bgm-audio" src="hukum-reloaded.mp3" loop preload="auto" crossorigin="anonymous"></audio>
-    <audio id="bomb-sound" src="bomb-explosion.mp3" preload="auto" crossorigin="anonymous"></audio>
+    <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
+    <audio id="lock-bgm-audio" src="hukum-reloaded.mp3" loop preload="auto"></audio>
+    <audio id="bomb-sound" src="bomb-explosion.mp3" preload="auto"></audio>
 
     <!-- Main Output Canvas -->
     <canvas id="render-canvas" aria-label="Live camera preview with targeting overlay"></canvas>
@@ -1831,7 +1835,7 @@
       RETICLE_SMOOTH_HALFLIFE: 0.18,
       DETECTOR_INPUT_SIZE: 416,
       GLASSES_CONFIDENCE_THRESHOLD: 0.20,
-      DETECTOR_INTERVAL_MS: 500,
+      DETECTOR_INTERVAL_MS: 1200,
       STABLE_DETECTION_COUNT: 2
     };
 
@@ -1926,9 +1930,14 @@
       lockBgmAudio: document.getElementById('lock-bgm-audio'),
       bombSound: document.getElementById('bomb-sound'),
       lockBgmActive: false,
-      bgmTargetVol: 0.32,  // Medium volume by default
-      bgmCurrentVol: 0.32,
+      bgmTargetVol: 0.85,  // Loud, punchy music volume
+      bgmCurrentVol: 0.85,
       bgmMuted: false,
+
+      // Performance Optimization Caches
+      vignetteGradient: null,
+      vignetteWidth: 0,
+      vignetteHeight: 0,
 
       // Effects: Camera Shake (smooth oscillating, multi-axis)
       shakeIntensity: 0,
@@ -2073,11 +2082,14 @@
           data[i] = lastOut * 3.5;
         }
 
-        this.connectMediaElements();
+        // Only connect media elements when context is running
+        if (this.ctx.state === 'running') {
+          this.connectMediaElements();
+        }
       }
 
       connectMediaElements() {
-        if (!this.ctx || this._mediaElementsConnected) return;
+        if (!this.ctx || this._mediaElementsConnected || this.ctx.state !== 'running') return;
         try {
           const elements = [app.bgmAudio, app.lockBgmAudio, app.bombSound];
           elements.forEach(el => {
@@ -2098,9 +2110,12 @@
 
       resume() {
         if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume();
+          this.ctx.resume().then(() => {
+            this.connectMediaElements();
+          }).catch(() => {});
+        } else if (this.ctx && this.ctx.state === 'running') {
+          this.connectMediaElements();
         }
-        this.connectMediaElements();
       }
 
       // Act 1: Tension Drone during LOCKING
@@ -2555,13 +2570,17 @@
 
       getBestMimeType() {
         if (typeof MediaRecorder === 'undefined') return null;
-        const types = [
-          'video/mp4;codecs=avc1,mp4a.40.2',
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const types = isIOS ? [
+          'video/mp4;codecs=avc1.640028,mp4a.40.2',
           'video/mp4;codecs=avc1',
-          'video/mp4',
+          'video/mp4'
+        ] : [
           'video/webm;codecs=vp9,opus',
           'video/webm;codecs=vp8,opus',
-          'video/webm'
+          'video/webm',
+          'video/mp4;codecs=avc1',
+          'video/mp4'
         ];
         for (const t of types) {
           try {
@@ -2581,7 +2600,6 @@
         try {
           sound.init();
           sound.resume();
-          sound.connectMediaElements();
 
           // 1. Capture 2D Canvas visual stream at 30 FPS
           const canvasStream = app.canvas.captureStream(30);
@@ -2606,8 +2624,8 @@
           const mimeType = this.getBestMimeType();
           const recOpts = {};
           if (mimeType) recOpts.mimeType = mimeType;
-          recOpts.videoBitsPerSecond = 2800000; // 2.8 Mbps
-          recOpts.audioBitsPerSecond = 128000;  // 128 kbps
+          recOpts.videoBitsPerSecond = 8000000; // 8.0 Mbps high bitrate for ultra-crisp blast quality
+          recOpts.audioBitsPerSecond = 192000;  // 192 kbps high-fidelity audio
 
           try {
             this.recorder = new MediaRecorder(combinedStream, recOpts);
@@ -3264,7 +3282,8 @@
           ? actualMode
           : facingMode;
         app.isMirrored = app.facingMode === 'user';
-        const maxDim = 1280;
+        const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const maxDim = isMobile ? 960 : 1280;
         let targetW = app.video.videoWidth || 1280;
         let targetH = app.video.videoHeight || 720;
         if (Math.max(targetW, targetH) > maxDim) {
@@ -3505,15 +3524,16 @@
       app.detectorContext.fillRect(0, 0, inputSize, inputSize);
       app.detectorContext.drawImage(app.video, offsetX, offsetY, drawWidth, drawHeight);
 
-      const pixels = app.detectorContext.getImageData(0, 0, inputSize, inputSize).data;
+      const imgData = app.detectorContext.getImageData(0, 0, inputSize, inputSize);
+      const data32 = new Uint32Array(imgData.data.buffer);
       const planeSize = inputSize * inputSize;
       const tensorInput = app.detectorInput;
       const inv255 = 1 / 255;
-      for (let pixel = 0; pixel < planeSize; pixel++) {
-        const rgbaIndex = pixel * 4;
-        tensorInput[pixel] = pixels[rgbaIndex] * inv255;
-        tensorInput[planeSize + pixel] = pixels[rgbaIndex + 1] * inv255;
-        tensorInput[planeSize * 2 + pixel] = pixels[rgbaIndex + 2] * inv255;
+      for (let i = 0; i < planeSize; i++) {
+        const pixel = data32[i];
+        tensorInput[i] = (pixel & 0xFF) * inv255;
+        tensorInput[planeSize + i] = ((pixel >> 8) & 0xFF) * inv255;
+        tensorInput[planeSize * 2 + i] = ((pixel >> 16) & 0xFF) * inv255;
       }
       return { scale, offsetX, offsetY, inputSize };
     }
@@ -3619,8 +3639,12 @@
 
     function scheduleGlassesDetection(now) {
       if (!app.autoDetectEnabled || !app.videoReady || !app.detectorSession
-        || app.detectorInFlight || now - app.detectorLastRunAt < CONFIG.DETECTOR_INTERVAL_MS
-        || app.targetLocked || app.state !== STATES.IDLE) return;
+        || app.detectorInFlight || app.targetLocked || app.state !== STATES.IDLE) return;
+
+      // Throttle AI detector: 1200ms when searching, 2200ms once stably identified to maintain 60 FPS
+      const minInterval = (app.autoTargetDetected && app.detectorStableCount >= 2) ? 2200 : CONFIG.DETECTOR_INTERVAL_MS;
+      if (now - app.detectorLastRunAt < minInterval) return;
+
       app.detectorLastRunAt = now;
       app.detectorInFlight = true;
       detectGlasses().then(detection => {
@@ -4228,16 +4252,20 @@
         }
         ctx.restore();
 
-        // 2. Cinematic Vignette Overlay
+        // 2. Cinematic Vignette Overlay (Cached for 60 FPS performance)
         ctx.save();
-        const vig = ctx.createRadialGradient(
-          width * 0.5, height * 0.5, Math.min(width, height) * 0.25,
-          width * 0.5, height * 0.5, Math.max(width, height) * 0.75
-        );
-        vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        vig.addColorStop(0.65, 'rgba(0, 0, 0, 0.22)');
-        vig.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
-        ctx.fillStyle = vig;
+        if (!app.vignetteGradient || app.vignetteWidth !== width || app.vignetteHeight !== height) {
+          app.vignetteGradient = ctx.createRadialGradient(
+            width * 0.5, height * 0.5, Math.min(width, height) * 0.25,
+            width * 0.5, height * 0.5, Math.max(width, height) * 0.75
+          );
+          app.vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          app.vignetteGradient.addColorStop(0.65, 'rgba(0, 0, 0, 0.22)');
+          app.vignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
+          app.vignetteWidth = width;
+          app.vignetteHeight = height;
+        }
+        ctx.fillStyle = app.vignetteGradient;
         ctx.fillRect(0, 0, width, height);
         ctx.restore();
 
@@ -4385,9 +4413,9 @@
       try {
         sound.init();
         sound.resume();
+        startBgmMusic();
       } catch (err) {
         console.warn("Audio is unavailable; continuing without sound:", err);
-        app.soundEnabled = false;
       }
       await initWebcam();
     });
@@ -4622,39 +4650,64 @@
       if (!overlay) return;
       const logo = document.getElementById('intro-logo');
       let skipped = false;
+
       const dismiss = () => {
         if (skipped) return;
         skipped = true;
         overlay.classList.add('is-leaving');
-        setTimeout(() => overlay.remove(), 350);
+        setTimeout(() => overlay.remove(), 600);
       };
+
       overlay.addEventListener('pointerdown', dismiss, { once: true });
       const pause = duration => new Promise(resolve => {
         const timer = window.setTimeout(resolve, duration);
         overlay.addEventListener('pointerdown', () => { clearTimeout(timer); resolve(); }, { once: true });
       });
+
+      const displayIntroImage = async (imageSrc) => {
+        if (skipped) return;
+        logo.src = imageSrc;
+        logo.classList.remove('is-fading-out');
+        void logo.offsetWidth; // force reflow
+        logo.classList.add('is-visible');
+        await pause(2400); // 2.4s steady hold
+        if (skipped) return;
+        logo.classList.remove('is-visible');
+        logo.classList.add('is-fading-out');
+        await pause(600);  // 0.6s smooth transition (total = 3.0s per image)
+      };
+
+      // 1. Jailer 2 Movie Logo (3.0 seconds with smooth transition)
+      await displayIntroImage('jailer2_logo.png');
       if (skipped) return;
-      logo.classList.add('is-visible');
-      await pause(1400);
+
+      // 2. A Simulation By (3.0 seconds with smooth transition)
+      await displayIntroImage('simulation-by.png');
       if (skipped) return;
-      logo.classList.remove('is-visible');
-      logo.src = 'simulation-by.png';
-      logo.alt = '';
-      void logo.offsetWidth;
-      logo.classList.add('is-visible');
-      await pause(1400);
+
+      // 3. Panbhu Logo (3.0 seconds with smooth transition)
+      await displayIntroImage('panbhu_logo.png');
       if (skipped) return;
-      logo.classList.remove('is-visible');
-      logo.src = 'panbhu_logo.png';
-      void logo.offsetWidth;
-      logo.classList.add('is-visible');
-      await pause(1400);
+
       dismiss();
     }
 
-    document.addEventListener('pointerdown', () => {
-      if (app.soundEnabled && getActiveBgmAudio()?.paused) startBgmMusic();
-    }, { once: true });
+    // Global unlock listener: ensures BGM music & Web Audio play reliably on any touch/click
+    const unlockAudio = () => {
+      if (sound.ctx && sound.ctx.state === 'suspended') {
+        sound.resume();
+      }
+      if (app.soundEnabled && !app.bgmMuted) {
+        const audio = getActiveBgmAudio();
+        if (audio && audio.paused) {
+          audio.volume = app.bgmTargetVol;
+          audio.play().catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('click', unlockAudio, { passive: true });
   </script>
 </body>
 </html>
