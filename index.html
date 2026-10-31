@@ -1221,6 +1221,288 @@
       .btn-power-fire { font-size: 9.5px; }
     }
 
+    /* ==========================================================================
+       SCREEN RECORDING & LOCAL DEVICE STORAGE STYLES
+       ========================================================================== */
+    .btn-record {
+      border-color: rgba(255, 42, 75, 0.45);
+      transition: all 0.25s ease;
+    }
+    .btn-record:hover {
+      border-color: var(--crimson);
+      background: rgba(255, 42, 75, 0.18);
+    }
+    .btn-record.is-recording {
+      background: rgba(255, 42, 75, 0.32) !important;
+      border-color: var(--crimson) !important;
+      color: #fff !important;
+      box-shadow: 0 0 16px rgba(255, 42, 75, 0.7) !important;
+      animation: rec-pulse-glow 1.5s infinite;
+    }
+    .rec-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ff2a4b;
+      display: inline-block;
+      box-shadow: 0 0 8px #ff2a4b;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    .btn-record.is-recording .rec-dot {
+      animation: rec-blink 1s ease-in-out infinite;
+    }
+    @keyframes rec-blink {
+      0%, 100% { opacity: 1; transform: scale(1.15); }
+      50% { opacity: 0.25; transform: scale(0.8); }
+    }
+    @keyframes rec-pulse-glow {
+      0%, 100% { box-shadow: 0 0 10px rgba(255, 42, 75, 0.4); }
+      50% { box-shadow: 0 0 22px rgba(255, 42, 75, 0.85); }
+    }
+
+    .btn-recordings {
+      border-color: rgba(255, 149, 0, 0.25);
+    }
+    .btn-recordings:hover {
+      border-color: var(--amber);
+      background: rgba(255, 149, 0, 0.16);
+    }
+
+    /* Floating Live Recording HUD Badge */
+    .recording-hud-badge {
+      position: absolute;
+      top: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(18, 5, 8, 0.92);
+      border: 1px solid rgba(255, 42, 75, 0.65);
+      border-radius: var(--radius-pill);
+      padding: 5px 14px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 1.2px;
+      color: #fff;
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      box-shadow: 0 0 20px rgba(255, 42, 75, 0.45), 0 4px 16px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+    .recording-hud-badge[hidden] { display: none !important; }
+    .rec-live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff2a4b;
+      box-shadow: 0 0 10px #ff2a4b;
+      animation: rec-blink 1s infinite;
+    }
+    .rec-live-text {
+      font-weight: 800;
+      color: #ff2a4b;
+    }
+    .rec-live-time {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Toast Container & Notification */
+    .toast-container {
+      position: fixed;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      align-items: center;
+      pointer-events: none;
+      max-width: 90vw;
+    }
+    .toast-msg {
+      background: rgba(10, 12, 22, 0.94);
+      border: 1px solid rgba(255, 149, 0, 0.45);
+      border-radius: var(--radius-pill);
+      padding: 7px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      color: #fff;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.8), 0 0 18px rgba(255, 149, 0, 0.28);
+      animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1), toastOut 0.35s ease 2.7s forwards;
+      pointer-events: auto;
+      white-space: nowrap;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(-8px) scale(0.96); }
+    }
+
+    /* Video Preview Player in Modals */
+    .recording-preview-player {
+      width: 100%;
+      max-height: 38vh;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: #000;
+      object-fit: contain;
+      margin: 10px 0;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
+      display: block;
+    }
+    .recording-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .recording-meta-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 4px;
+      text-align: center;
+    }
+    .recording-meta-label {
+      font-size: 7.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .recording-meta-val {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    /* Modal Action Buttons */
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 6px;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+    .btn-danger-subtle {
+      background: rgba(255, 42, 75, 0.12);
+      border: 1px solid rgba(255, 42, 75, 0.3);
+      color: #ff6b81;
+      font-size: 9.5px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-danger-subtle:hover {
+      background: rgba(255, 42, 75, 0.25);
+      border-color: var(--crimson);
+    }
+
+    /* Gallery List & Item Cards */
+    .gallery-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 48vh;
+      overflow-y: auto;
+      margin: 10px 0 14px;
+      padding-right: 2px;
+    }
+    .gallery-card {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      background: rgba(16, 18, 28, 0.75);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      transition: border-color 0.2s;
+    }
+    .gallery-card:hover {
+      border-color: var(--border-warm);
+    }
+    .gallery-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+    .gallery-card-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .gallery-card-date {
+      font-size: 8.5px;
+      color: var(--text-muted);
+    }
+    .gallery-card-badges {
+      display: flex;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .gallery-badge {
+      font-size: 8px;
+      padding: 2px 6px;
+      background: rgba(255, 149, 0, 0.12);
+      border: 1px solid rgba(255, 149, 0, 0.3);
+      color: #ffb347;
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .gallery-video-preview {
+      width: 100%;
+      max-height: 160px;
+      border-radius: var(--radius-sm);
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      object-fit: contain;
+    }
+    .gallery-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .gallery-empty-state {
+      text-align: center;
+      padding: 28px 14px;
+      color: var(--text-muted);
+      font-size: 11.5px;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         scroll-behavior: auto !important;
@@ -1249,9 +1531,9 @@
     <div id="letterbox-bottom" class="letterbox-bar"></div>
 
     <!-- Background Theme Music (Jailer 2 BGM Track) -->
-    <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
-    <audio id="lock-bgm-audio" src="hukum-reloaded.mp3" loop preload="auto"></audio>
-    <audio id="bomb-sound" src="bomb-explosion.mp3" preload="auto"></audio>
+    <audio id="bgm-audio" src="bgm.mp3" loop preload="auto" crossorigin="anonymous"></audio>
+    <audio id="lock-bgm-audio" src="hukum-reloaded.mp3" loop preload="auto" crossorigin="anonymous"></audio>
+    <audio id="bomb-sound" src="bomb-explosion.mp3" preload="auto" crossorigin="anonymous"></audio>
 
     <!-- Main Output Canvas -->
     <canvas id="render-canvas" aria-label="Live camera preview with targeting overlay"></canvas>
@@ -1296,11 +1578,29 @@
             <span id="audio-icon">🔊</span>
             <span id="audio-vol-text">LOUD</span>
           </button>
+          <button id="btn-record" class="hud-icon-btn btn-record" type="button" title="Record AR Blast with Audio">
+            <span class="rec-dot"></span>
+            <span id="rec-btn-text">REC</span>
+          </button>
+          <button id="btn-recordings" class="hud-icon-btn btn-recordings" type="button" title="View Saved Recordings on Device">
+            <span>📁</span>
+            <span id="recordings-count-badge">SAVED</span>
+          </button>
           <button id="btn-settings" class="settings-control" type="button" aria-label="Open settings">SETTINGS</button>
         </div>
       </div>
 
     </header>
+
+    <!-- Floating Live Recording Indicator -->
+    <div id="recording-hud-badge" class="recording-hud-badge" hidden>
+      <span class="rec-live-dot"></span>
+      <span class="rec-live-text">REC</span>
+      <span id="rec-live-time" class="rec-live-time">00:00</span>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
     <div class="camera-selector" role="group" aria-label="Select camera">
       <button class="camera-option" id="btn-front-camera" type="button" aria-pressed="false">FRONT CAMERA</button>
@@ -1351,6 +1651,9 @@
 
     <!-- Act 4 Reveal Controls & Replay -->
     <div id="reveal-controls" aria-hidden="true">
+      <button id="btn-save-blast-pill" class="btn-replay" style="background: rgba(255, 42, 75, 0.9); border-color: var(--crimson); display: none;">
+        💾 SAVE BLAST VIDEO
+      </button>
       <button id="btn-replay-pill" class="btn-replay">
         PLAY AGAIN
       </button>
@@ -1409,6 +1712,7 @@
       </div>
     </div>
 
+    <!-- Settings & Preferences Modal -->
     <div id="settings-modal" class="overlay-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-hidden="true">
       <div class="modal-card">
           <div class="modal-badge">GLASSES TRACKING // V1.0</div>
@@ -1422,6 +1726,10 @@
               <span><input id="auto-blast" type="checkbox"> Auto-blast when detected</span>
               <small>Automatically start countdown when glasses are detected.</small>
             </label>
+            <label class="settings-field">
+              <span><input id="auto-record-blast" type="checkbox" checked> Auto-record blast sequence</span>
+              <small>Capture video with synchronized audio during countdown & blast, then save to device storage.</small>
+            </label>
             <p id="detector-status" class="detector-status" role="status" aria-live="polite">
               Uses a conservative confidence threshold to avoid false targets. Small or unclear glasses may be missed; turn auto-detect off to aim manually.
             </p>
@@ -1434,6 +1742,76 @@
             <p class="modal-desc">Camera access requires HTTPS or localhost. This is a visual-only animation; no external device or real-world action is triggered.</p>
           </div>
           <button id="btn-close-settings" class="btn-primary" type="button">DONE</button>
+      </div>
+    </div>
+
+    <!-- Recording Completed / Preview Modal -->
+    <div id="recording-saved-modal" class="overlay-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="recording-saved-title">
+      <div class="modal-card" style="max-width: 440px;">
+        <div class="modal-badge" style="background: rgba(255, 42, 75, 0.18); color: var(--crimson); border-color: rgba(255, 42, 75, 0.4);">
+          CINEMATIC CAPTURE // STORED ON DEVICE
+        </div>
+        <h2 class="modal-title" id="recording-saved-title" style="color: #fff; margin-bottom: 4px;">Blast Recorded!</h2>
+        <p class="modal-desc" style="margin-bottom: 10px;">
+          Video with synchronized audio has been stored in your device local storage.
+        </p>
+
+        <video id="saved-video-preview" controls playsinline loop class="recording-preview-player"></video>
+
+        <div class="recording-meta-grid">
+          <div class="recording-meta-item">
+            <div class="recording-meta-label">DURATION</div>
+            <div class="recording-meta-val" id="preview-dur-val">0s</div>
+          </div>
+          <div class="recording-meta-item">
+            <div class="recording-meta-label">FILE SIZE</div>
+            <div class="recording-meta-val" id="preview-size-val">0 MB</div>
+          </div>
+          <div class="recording-meta-item">
+            <div class="recording-meta-label">AUDIO</div>
+            <div class="recording-meta-val" style="color: #64c985;">SYNCHRONIZED</div>
+          </div>
+        </div>
+
+        <button id="btn-preview-save-device" class="btn-primary" type="button" style="background: linear-gradient(135deg, #ff9500 0%, #ff4500 100%); margin-bottom: 6px;">
+          💾 SAVE TO DEVICE / PHOTOS
+        </button>
+        <button id="btn-preview-download" class="btn-secondary" type="button">
+          ⬇️ DOWNLOAD FILE
+        </button>
+        <button id="btn-preview-view-gallery" class="btn-secondary" type="button" style="background: transparent; border-color: var(--border-warm); color: var(--amber); margin-top: 6px; font-size: 10px;">
+          📁 VIEW ALL SAVED RECORDINGS
+        </button>
+        <button id="btn-preview-close" class="btn-secondary" type="button" style="background: transparent; border-color: var(--border); margin-top: 6px; font-size: 10px;">
+          DONE
+        </button>
+      </div>
+    </div>
+
+    <!-- Recordings Gallery Modal -->
+    <div id="recordings-gallery-modal" class="overlay-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="recordings-gallery-title">
+      <div class="modal-card" style="max-width: 480px; max-height: 88vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <div class="modal-badge">DEVICE STORAGE // INDEXEDDB</div>
+          <span id="gallery-count-badge" class="gallery-badge" style="font-weight: 700;">0 SAVED</span>
+        </div>
+        <h2 class="modal-title" id="recordings-gallery-title">Saved Recordings</h2>
+        <p class="modal-desc" style="margin-bottom: 6px;">
+          All blast videos stored persistently on this device.
+        </p>
+
+        <div id="gallery-recordings-list" class="gallery-list">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button id="btn-clear-all-recordings" class="btn-danger-subtle" type="button" style="padding: 10px 14px; font-size: 10px; flex: 1;">
+            🗑 CLEAR ALL
+          </button>
+          <button id="btn-close-gallery" class="btn-primary" type="button" style="flex: 2; margin-top: 0;">
+            DONE
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1608,7 +1986,20 @@
       motionToggle: document.getElementById('reduce-motion'),
       autoDetectToggle: document.getElementById('auto-detect-glasses'),
       autoBlastToggle: document.getElementById('auto-blast'),
-      detectorStatus: document.getElementById('detector-status')
+      detectorStatus: document.getElementById('detector-status'),
+
+      // Screen Recording & Device Local Storage
+      btnRecord: document.getElementById('btn-record'),
+      recBtnText: document.getElementById('rec-btn-text'),
+      btnRecordings: document.getElementById('btn-recordings'),
+      recordingsCountBadge: document.getElementById('recordings-count-badge'),
+      recordingBadge: document.getElementById('recording-hud-badge'),
+      recLiveTime: document.getElementById('rec-live-time'),
+      autoRecordBlastToggle: document.getElementById('auto-record-blast'),
+      autoRecordBlast: true,
+      btnSaveBlastPill: document.getElementById('btn-save-blast-pill'),
+      recordingSavedModal: document.getElementById('recording-saved-modal'),
+      recordingsGalleryModal: document.getElementById('recordings-gallery-modal')
     };
 
     /* ==========================================================================
@@ -1620,6 +2011,8 @@
         this.masterGain = null;
         this.compressor = null;
         this.noiseBuffer = null;
+        this.streamDest = null;
+        this._mediaElementsConnected = false;
 
         // Tension Drone Nodes (Act 1 Locking)
         this.droneOsc1 = null;
@@ -1659,6 +2052,16 @@
         this.compressor.connect(this.masterGain);
         this.masterGain.connect(this.ctx.destination);
 
+        // Recording MediaStreamDestination (captures Web Audio + SFX for screen recorder)
+        try {
+          if (this.ctx.createMediaStreamDestination) {
+            this.streamDest = this.ctx.createMediaStreamDestination();
+            this.masterGain.connect(this.streamDest);
+          }
+        } catch (e) {
+          console.warn("createMediaStreamDestination failed:", e);
+        }
+
         // Pre-generate Brown Noise Buffer (for explosion & roaring fire)
         const bufferSize = this.ctx.sampleRate * 4;
         this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -1669,12 +2072,35 @@
           lastOut = (lastOut + 0.02 * white) / 1.02;
           data[i] = lastOut * 3.5;
         }
+
+        this.connectMediaElements();
+      }
+
+      connectMediaElements() {
+        if (!this.ctx || this._mediaElementsConnected) return;
+        try {
+          const elements = [app.bgmAudio, app.lockBgmAudio, app.bombSound];
+          elements.forEach(el => {
+            if (el) {
+              try {
+                const source = this.ctx.createMediaElementSource(el);
+                source.connect(this.compressor);
+              } catch (err) {
+                // Ignore if already connected or unsupported
+              }
+            }
+          });
+          this._mediaElementsConnected = true;
+        } catch (e) {
+          console.warn("connectMediaElements error:", e);
+        }
       }
 
       resume() {
         if (this.ctx && this.ctx.state === 'suspended') {
           this.ctx.resume();
         }
+        this.connectMediaElements();
       }
 
       // Act 1: Tension Drone during LOCKING
@@ -1938,6 +2364,530 @@
     }
 
     const sound = new ProceduralAudioEngine();
+
+    /* ==========================================================================
+       SECTION 1B: PERSISTENT DEVICE LOCAL STORAGE (INDEXEDDB)
+       ========================================================================== */
+    class RecorderStorage {
+      constructor() {
+        this.dbName = 'JailerRecordingsDB';
+        this.version = 1;
+        this.storeName = 'recordings';
+        this.db = null;
+      }
+
+      async init() {
+        if (this.db) return this.db;
+        return new Promise((resolve) => {
+          if (!window.indexedDB) {
+            console.warn("IndexedDB is not supported on this browser.");
+            resolve(null);
+            return;
+          }
+          const req = indexedDB.open(this.dbName, this.version);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(this.storeName)) {
+              const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+              store.createIndex('timestamp', 'timestamp', { unique: false });
+            }
+          };
+          req.onsuccess = (e) => {
+            this.db = e.target.result;
+            resolve(this.db);
+          };
+          req.onerror = (e) => {
+            console.error("IndexedDB open error:", e);
+            resolve(null);
+          };
+        });
+      }
+
+      formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      }
+
+      async save(blob, durationSec, mimeType) {
+        await this.init();
+        if (!this.db) return null;
+        return new Promise((resolve, reject) => {
+          try {
+            const now = Date.now();
+            const d = new Date(now);
+            const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const ext = (mimeType && mimeType.includes('mp4')) ? 'mp4' : 'webm';
+            const name = `JAILER2_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}.${ext}`;
+
+            const record = {
+              id: now,
+              name: name,
+              timestamp: now,
+              dateStr: dateStr,
+              durationSec: Math.max(1, Math.round(durationSec)),
+              sizeBytes: blob.size,
+              sizeFormatted: this.formatBytes(blob.size),
+              mimeType: mimeType || blob.type || (ext === 'mp4' ? 'video/mp4' : 'video/webm'),
+              blob: blob
+            };
+
+            const tx = this.db.transaction([this.storeName], 'readwrite');
+            const store = tx.objectStore(this.storeName);
+            const req = store.add(record);
+            req.onsuccess = () => resolve(record);
+            req.onerror = (e) => {
+              console.error("Failed to write to IndexedDB:", e);
+              reject(e);
+            };
+          } catch (err) {
+            console.error("save error:", err);
+            reject(err);
+          }
+        });
+      }
+
+      async getAll() {
+        await this.init();
+        if (!this.db) return [];
+        return new Promise((resolve) => {
+          try {
+            const tx = this.db.transaction([this.storeName], 'readonly');
+            const store = tx.objectStore(this.storeName);
+            const index = store.index('timestamp');
+            const req = index.getAll();
+            req.onsuccess = () => {
+              const list = req.result || [];
+              list.sort((a, b) => b.timestamp - a.timestamp);
+              resolve(list);
+            };
+            req.onerror = () => resolve([]);
+          } catch (e) {
+            resolve([]);
+          }
+        });
+      }
+
+      async get(id) {
+        await this.init();
+        if (!this.db) return null;
+        return new Promise((resolve) => {
+          try {
+            const tx = this.db.transaction([this.storeName], 'readonly');
+            const store = tx.objectStore(this.storeName);
+            const req = store.get(Number(id));
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+          } catch (e) {
+            resolve(null);
+          }
+        });
+      }
+
+      async getCount() {
+        await this.init();
+        if (!this.db) return 0;
+        return new Promise((resolve) => {
+          try {
+            const tx = this.db.transaction([this.storeName], 'readonly');
+            const store = tx.objectStore(this.storeName);
+            const req = store.count();
+            req.onsuccess = () => resolve(req.result || 0);
+            req.onerror = () => resolve(0);
+          } catch (e) {
+            resolve(0);
+          }
+        });
+      }
+
+      async delete(id) {
+        await this.init();
+        if (!this.db) return false;
+        return new Promise((resolve) => {
+          try {
+            const tx = this.db.transaction([this.storeName], 'readwrite');
+            const store = tx.objectStore(this.storeName);
+            const req = store.delete(Number(id));
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => resolve(false);
+          } catch (e) {
+            resolve(false);
+          }
+        });
+      }
+
+      async clearAll() {
+        await this.init();
+        if (!this.db) return false;
+        return new Promise((resolve) => {
+          try {
+            const tx = this.db.transaction([this.storeName], 'readwrite');
+            const store = tx.objectStore(this.storeName);
+            const req = store.clear();
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => resolve(false);
+          } catch (e) {
+            resolve(false);
+          }
+        });
+      }
+    }
+
+    const recordingsDB = new RecorderStorage();
+
+    /* ==========================================================================
+       SECTION 1C: SCREEN RECORDER ENGINE WITH SYNCHRONIZED AUDIO
+       ========================================================================== */
+    class ScreenRecorder {
+      constructor() {
+        this.isRecording = false;
+        this.isAutoBlast = false;
+        this.recorder = null;
+        this.chunks = [];
+        this.startTime = 0;
+        this.timerInterval = null;
+        this.lastRecord = null;
+        this.autoStopTimeout = null;
+        this.maxDurationMs = 60000; // 60s max recording guard
+      }
+
+      getBestMimeType() {
+        if (typeof MediaRecorder === 'undefined') return null;
+        const types = [
+          'video/mp4;codecs=avc1,mp4a.40.2',
+          'video/mp4;codecs=avc1',
+          'video/mp4',
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm'
+        ];
+        for (const t of types) {
+          try {
+            if (MediaRecorder.isTypeSupported(t)) return t;
+          } catch (e) {}
+        }
+        return '';
+      }
+
+      async start(options = {}) {
+        if (this.isRecording) return;
+        if (typeof MediaRecorder === 'undefined' || !app.canvas.captureStream) {
+          showToast('⚠️ Screen recording is not supported on this browser.');
+          return;
+        }
+
+        try {
+          sound.init();
+          sound.resume();
+          sound.connectMediaElements();
+
+          // 1. Capture 2D Canvas visual stream at 30 FPS
+          const canvasStream = app.canvas.captureStream(30);
+          const combinedStream = new MediaStream();
+
+          // Add visual video track
+          const vTracks = canvasStream.getVideoTracks();
+          if (vTracks.length > 0) {
+            combinedStream.addTrack(vTracks[0]);
+          } else {
+            throw new Error("No video track captured from canvas.");
+          }
+
+          // Add synchronized Web Audio track
+          if (sound.streamDest && sound.streamDest.stream) {
+            const aTracks = sound.streamDest.stream.getAudioTracks();
+            if (aTracks.length > 0) {
+              combinedStream.addTrack(aTracks[0]);
+            }
+          }
+
+          const mimeType = this.getBestMimeType();
+          const recOpts = {};
+          if (mimeType) recOpts.mimeType = mimeType;
+          recOpts.videoBitsPerSecond = 2800000; // 2.8 Mbps
+          recOpts.audioBitsPerSecond = 128000;  // 128 kbps
+
+          try {
+            this.recorder = new MediaRecorder(combinedStream, recOpts);
+          } catch (optErr) {
+            console.warn("MediaRecorder with options failed, fallback without options:", optErr);
+            this.recorder = new MediaRecorder(combinedStream);
+          }
+
+          this.chunks = [];
+          this.isRecording = true;
+          this.isAutoBlast = !!options.autoBlast;
+          this.startTime = performance.now();
+
+          this.recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              this.chunks.push(e.data);
+            }
+          };
+
+          this.recorder.onstop = async () => {
+            const durationSec = (performance.now() - this.startTime) / 1000;
+            const finalMime = this.recorder.mimeType || mimeType || 'video/mp4';
+            const blob = new Blob(this.chunks, { type: finalMime });
+            this.cleanup();
+
+            if (blob.size < 1000) {
+              showToast('⚠️ Recording was too short.');
+              return;
+            }
+
+            try {
+              const record = await recordingsDB.save(blob, durationSec, finalMime);
+              this.lastRecord = record;
+              await updateRecordingsBadge();
+              showToast('🎬 Recording saved to device storage!');
+              if (app.btnSaveBlastPill) {
+                app.btnSaveBlastPill.style.display = 'inline-block';
+              }
+              showRecordingPreviewModal(record);
+            } catch (err) {
+              console.error("Failed to save recording to IndexedDB:", err);
+              showToast('❌ Error saving to device storage.');
+            }
+          };
+
+          this.recorder.start(1000); // chunk every 1 second
+          this.updateUIActive();
+
+          // Timer ticker
+          this.timerInterval = setInterval(() => {
+            const elapsed = Math.floor((performance.now() - this.startTime) / 1000);
+            const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const s = String(elapsed % 60).padStart(2, '0');
+            const timeStr = `${m}:${s}`;
+            if (app.recLiveTime) app.recLiveTime.textContent = timeStr;
+            if (app.recBtnText) app.recBtnText.textContent = `STOP (${timeStr})`;
+          }, 500);
+
+          // 60-second safety cutoff
+          this.autoStopTimeout = setTimeout(() => {
+            if (this.isRecording) {
+              this.stop();
+              showToast('⏱ 60-second recording limit reached.');
+            }
+          }, this.maxDurationMs);
+
+          showToast(this.isAutoBlast ? '🔴 Recording blast sequence...' : '⏺ Screen recording started...');
+        } catch (err) {
+          console.error("Failed to start screen recorder:", err);
+          showToast('⚠️ Could not start screen recording: ' + err.message);
+          this.cleanup();
+        }
+      }
+
+      stop() {
+        if (!this.isRecording || !this.recorder) return;
+        try {
+          if (this.recorder.state !== 'inactive') {
+            this.recorder.stop();
+          }
+        } catch (e) {
+          console.warn("recorder.stop error:", e);
+        }
+      }
+
+      cleanup() {
+        this.isRecording = false;
+        this.isAutoBlast = false;
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
+        if (this.autoStopTimeout) {
+          clearTimeout(this.autoStopTimeout);
+          this.autoStopTimeout = null;
+        }
+        this.updateUIInactive();
+      }
+
+      updateUIActive() {
+        if (app.btnRecord) app.btnRecord.classList.add('is-recording');
+        if (app.recBtnText) app.recBtnText.textContent = 'STOP (00:00)';
+        if (app.recordingBadge) app.recordingBadge.hidden = false;
+      }
+
+      updateUIInactive() {
+        if (app.btnRecord) app.btnRecord.classList.remove('is-recording');
+        if (app.recBtnText) app.recBtnText.textContent = 'REC';
+        if (app.recordingBadge) app.recordingBadge.hidden = true;
+      }
+    }
+
+    const screenRecorder = new ScreenRecorder();
+
+    /* ==========================================================================
+       SECTION 1D: DEVICE STORAGE & FILE EXPORT HANDLERS
+       ========================================================================== */
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast-msg';
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 3100);
+    }
+
+    async function saveVideoToDevice(blob, fileName, mimeType) {
+      const ext = (mimeType && mimeType.includes('mp4')) ? 'mp4' : 'webm';
+      const name = fileName || `JAILER2_${Date.now()}.${ext}`;
+      const type = mimeType || (ext === 'mp4' ? 'video/mp4' : 'video/webm');
+
+      // 1. Web Share API (Primary for mobile: iOS Photos "Save Video" / Android Gallery)
+      if (navigator.share) {
+        try {
+          const file = new File([blob], name, { type });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'PANBUU JAILER 2 AR Blast',
+              text: 'Recorded with PANBUU JAILER 2 AR Cinematic Vision'
+            });
+            showToast('✅ Saved / Shared successfully!');
+            return;
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') return; // User cancelled
+          console.warn("navigator.share failed, using direct download:", err);
+        }
+      }
+
+      // 2. Direct Download Fallback
+      downloadVideoBlob(blob, name);
+    }
+
+    function downloadVideoBlob(blob, fileName) {
+      try {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          if (a.parentNode) document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 3000);
+        showToast('⬇️ Video downloaded to device!');
+      } catch (err) {
+        console.error("Download failed:", err);
+        showToast('❌ Download failed.');
+      }
+    }
+
+    function showRecordingPreviewModal(record) {
+      const modal = document.getElementById('recording-saved-modal');
+      const video = document.getElementById('saved-video-preview');
+      const durVal = document.getElementById('preview-dur-val');
+      const sizeVal = document.getElementById('preview-size-val');
+      const btnSave = document.getElementById('btn-preview-save-device');
+      const btnDownload = document.getElementById('btn-preview-download');
+      const btnViewGallery = document.getElementById('btn-preview-view-gallery');
+      const btnClose = document.getElementById('btn-preview-close');
+
+      if (!modal || !video) return;
+
+      const url = URL.createObjectURL(record.blob);
+      video.src = url;
+      video.load();
+
+      if (durVal) durVal.textContent = `${record.durationSec}s`;
+      if (sizeVal) sizeVal.textContent = record.sizeFormatted;
+
+      btnSave.onclick = () => saveVideoToDevice(record.blob, record.name, record.mimeType);
+      btnDownload.onclick = () => downloadVideoBlob(record.blob, record.name);
+      btnViewGallery.onclick = () => {
+        modal.classList.add('hidden');
+        video.pause();
+        showRecordingsGalleryModal();
+      };
+      btnClose.onclick = () => {
+        modal.classList.add('hidden');
+        video.pause();
+      };
+
+      modal.classList.remove('hidden');
+    }
+
+    async function showRecordingsGalleryModal() {
+      const modal = document.getElementById('recordings-gallery-modal');
+      const list = document.getElementById('gallery-recordings-list');
+      const countBadge = document.getElementById('gallery-count-badge');
+      if (!modal || !list) return;
+
+      const items = await recordingsDB.getAll();
+      if (countBadge) countBadge.textContent = `${items.length} SAVED`;
+
+      list.innerHTML = '';
+      if (items.length === 0) {
+        list.innerHTML = `
+          <div class="gallery-empty-state">
+            <div style="font-size: 32px; margin-bottom: 8px;">📹</div>
+            <p><strong>No saved recordings yet.</strong></p>
+            <p style="font-size: 11px; margin-top: 4px; opacity: 0.7;">Tap the REC button or trigger an AR blast to record your first video!</p>
+          </div>
+        `;
+      } else {
+        items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'gallery-card';
+          const url = URL.createObjectURL(item.blob);
+          card.innerHTML = `
+            <div class="gallery-card-header">
+              <div class="gallery-card-title">${item.name}</div>
+              <div class="gallery-card-badges">
+                <span class="gallery-badge">⏱ ${item.durationSec}s</span>
+                <span class="gallery-badge">📦 ${item.sizeFormatted}</span>
+              </div>
+            </div>
+            <div class="gallery-card-date">📅 ${item.dateStr}</div>
+            <video controls playsinline preload="metadata" src="${url}" class="gallery-video-preview"></video>
+            <div class="gallery-card-actions">
+              <button class="btn-subtle btn-gallery-save" type="button" style="flex: 1; padding: 6px 8px; font-size: 9px;">💾 SAVE / SHARE</button>
+              <button class="btn-subtle btn-gallery-download" type="button" style="flex: 1; padding: 6px 8px; font-size: 9px;">⬇️ DOWNLOAD</button>
+              <button class="btn-danger-subtle btn-gallery-delete" type="button" style="padding: 6px 8px; font-size: 9px;" title="Delete">🗑</button>
+            </div>
+          `;
+
+          card.querySelector('.btn-gallery-save').onclick = () => {
+            saveVideoToDevice(item.blob, item.name, item.mimeType);
+          };
+          card.querySelector('.btn-gallery-download').onclick = () => {
+            downloadVideoBlob(item.blob, item.name);
+          };
+          card.querySelector('.btn-gallery-delete').onclick = async () => {
+            if (confirm(`Delete ${item.name} from device storage?`)) {
+              await recordingsDB.delete(item.id);
+              URL.revokeObjectURL(url);
+              showToast('🗑 Recording deleted from device.');
+              showRecordingsGalleryModal();
+              updateRecordingsBadge();
+            }
+          };
+
+          list.appendChild(card);
+        });
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    async function updateRecordingsBadge() {
+      const badge = document.getElementById('recordings-count-badge');
+      if (!badge) return;
+      const count = await recordingsDB.getCount();
+      badge.textContent = count > 0 ? `SAVED (${count})` : 'SAVED';
+    }
 
     /* ==========================================================================
        SECTION 2: PARTICLE ENGINE & OBJECT POOLING
@@ -2839,6 +3789,11 @@
         app.lockCountdown.hidden = false;
         app.actionHint.textContent = "SIMULATION STARTING IN 3 SECONDS";
         updateTargetUI();
+
+        // Auto-record blast sequence with audio
+        if (app.autoRecordBlast && !screenRecorder.isRecording) {
+          screenRecorder.start({ autoBlast: true });
+        }
       }
       else if (newState === STATES.BLAST_IN_LENS) {
         app.statusDot.classList.add('blast');
@@ -2885,6 +3840,15 @@
         app.revealControls.setAttribute('aria-hidden', 'false');
         document.body.classList.add('letterbox-active');
         app.shakeIntensity = 0;
+
+        // Auto-stop blast recording after capturing 3.5s of the cinematic reveal flames
+        if (screenRecorder.isRecording && screenRecorder.isAutoBlast) {
+          setTimeout(() => {
+            if (screenRecorder.isRecording && screenRecorder.isAutoBlast) {
+              screenRecorder.stop();
+            }
+          }, 3500);
+        }
       }
       else if (newState === STATES.RESET) {
         sound.resetAll();
@@ -2917,6 +3881,11 @@
       if (!app.videoReady) return;
       if (app.state === STATES.BLAST_IN_LENS || app.state === STATES.BURST) return;
 
+      // Auto-record blast sequence if triggered directly
+      if (app.autoRecordBlast && !screenRecorder.isRecording) {
+        screenRecorder.start({ autoBlast: true });
+      }
+
       if (navigator.vibrate) {
         try { navigator.vibrate([100, 50, 200]); } catch (e) {}
       }
@@ -2942,6 +3911,9 @@
     }
 
     function resetApp() {
+      if (screenRecorder.isRecording && screenRecorder.isAutoBlast) {
+        screenRecorder.stop();
+      }
       app.targetLocked = false;
       app.canLock = false;
       app.manualTargetPlaced = false;
@@ -3514,6 +4486,86 @@
       app.reduceMotion = event.target.checked;
     });
 
+    // Screen Recording & Device Storage Controls
+    if (app.btnRecord) {
+      app.btnRecord.addEventListener('click', () => {
+        sound.resume();
+        if (screenRecorder.isRecording) {
+          screenRecorder.stop();
+        } else {
+          screenRecorder.start({ autoBlast: false });
+        }
+      });
+    }
+
+    if (app.btnRecordings) {
+      app.btnRecordings.addEventListener('click', () => {
+        showRecordingsGalleryModal();
+      });
+    }
+
+    if (app.btnSaveBlastPill) {
+      app.btnSaveBlastPill.addEventListener('click', () => {
+        if (screenRecorder.lastRecord) {
+          showRecordingPreviewModal(screenRecorder.lastRecord);
+        } else {
+          showRecordingsGalleryModal();
+        }
+      });
+    }
+
+    if (app.autoRecordBlastToggle) {
+      const savedPref = localStorage.getItem('jailer_auto_record_blast');
+      app.autoRecordBlast = savedPref !== 'false';
+      app.autoRecordBlastToggle.checked = app.autoRecordBlast;
+      app.autoRecordBlastToggle.addEventListener('change', (e) => {
+        app.autoRecordBlast = e.target.checked;
+        localStorage.setItem('jailer_auto_record_blast', String(app.autoRecordBlast));
+      });
+    }
+
+    // Gallery Modal Close & Dismissal
+    document.getElementById('btn-close-gallery')?.addEventListener('click', () => {
+      if (app.recordingsGalleryModal) app.recordingsGalleryModal.classList.add('hidden');
+    });
+
+    document.getElementById('btn-clear-all-recordings')?.addEventListener('click', async () => {
+      const count = await recordingsDB.getCount();
+      if (count === 0) {
+        showToast('Device storage is already empty.');
+        return;
+      }
+      if (confirm(`Permanently delete all ${count} recorded videos from this device?`)) {
+        await recordingsDB.clearAll();
+        showToast('🗑 All recordings deleted.');
+        showRecordingsGalleryModal();
+        updateRecordingsBadge();
+      }
+    });
+
+    [app.recordingSavedModal, app.recordingsGalleryModal].forEach(modal => {
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.classList.add('hidden');
+            const v = modal.querySelector('video');
+            if (v) v.pause();
+          }
+        });
+      }
+    });
+
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        if (app.recordingSavedModal && !app.recordingSavedModal.classList.contains('hidden')) {
+          app.recordingSavedModal.classList.add('hidden');
+        }
+        if (app.recordingsGalleryModal && !app.recordingsGalleryModal.classList.contains('hidden')) {
+          app.recordingsGalleryModal.classList.add('hidden');
+        }
+      }
+    });
+
     document.getElementById('btn-retry').addEventListener('click', () => {
       app.errorModal.style.display = 'none';
       app.startModal.classList.remove('hidden');
@@ -3538,6 +4590,7 @@
       // Responsive canvas scaling handled via CSS object-fit
     });
     window.addEventListener('pagehide', () => {
+      if (screenRecorder.isRecording) screenRecorder.stop();
       if (app.cameraStream) app.cameraStream.getTracks().forEach(track => track.stop());
       app.bgmAudio.pause();
       app.lockBgmAudio.pause();
@@ -3558,6 +4611,7 @@
       initParticlePools();
       updateCameraUI();
       updateTargetUI();
+      updateRecordingsBadge();
       playIntroSequence();
       startBgmMusic();
       requestAnimationFrame(renderLoop);
